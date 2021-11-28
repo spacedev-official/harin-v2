@@ -1,3 +1,4 @@
+import traceback
 from typing import Optional
 
 import discord
@@ -78,8 +79,8 @@ def indexer(index: int):
 class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
     def __init__(self, bot: MyBot):
         self.bot = bot
-        self.music_channel = {914455081859031060:914455084660850778}
-        self.channel = 914455081859031060
+        self.music_channel = {914512132907872398:914512135223115856}
+        self.channel = 914512132907872398
         self.music_stat = {847729860881154078:None}
         # self.client_secret = "" # spotify client_secret
         # self.client_id = "" # spotify client_id
@@ -138,6 +139,47 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
         else:
             await ctx.send("Query not found.",delete_after=5)
 
+    def default_music_embed(self):
+        em = discord.Embed(
+            title="현재 아무 곡도 재생 중이지 않아요.",
+            description="[초대](https://koreanbots.dev/bots/893841721958469703/invite) | [하트주기](https://koreanbots.dev/bots/893841721958469703/vote) | [지원서버](https://discord.gg/294KSUxcz2) | [깃허브](https://github.com/spacedev-official/harin)",
+            colour=discord.Colour.dark_purple()
+        )
+        em.set_image(url="https://media.discordapp.net/attachments/889514827905630290/914160536709636096/9dac48ccd1fc3509.png")
+        em.set_footer(text="아래 버튼을 통해 조작하실 수 있어요!")
+        em.add_field(name="루프모드",value="-",inline=False)
+        em.add_field(name="셔플모드",value="-",inline=False)
+        return em
+
+    async def set_default(self,ctx=None):
+        msg = await (   self.bot.get_channel(self.channel)).fetch_message(self.music_channel[self.channel])
+        await msg.edit(
+            content="** **\n**__대기열 목록__**:\n음성채널에 접속한뒤 이 채널에 제목이나 URL을 입력해주세요.",
+            embed=self.default_music_embed(),
+            components=[
+                [
+                    Button(emoji="⏯", custom_id="music_pr"),
+                    Button(emoji="⏹", custom_id="music_stop"),
+                    Button(emoji="⏮", custom_id="music_previous"),
+                    Button(emoji="⏭", custom_id="music_skip"),
+                    Button(emoji="🔀", custom_id="music_shuffle")
+                ],
+                [
+                    Button(emoji="🔉", custom_id="music_volumedown"),
+                    Button(label="10%", emoji="🔈", disabled=True),
+                    Button(emoji="🔊", custom_id="music_volumeup"),
+                    Button(emoji="🔁", custom_id="music_queueloop"),
+                    Button(emoji="🔂", custom_id="music_oneloop")
+                ],
+                [
+                    Button(emoji=self.bot.get_emoji(914490775742586960), custom_id="music_auto"),
+                    Button(emoji="📥", custom_id="music_join"),
+                    Button(emoji="❎", custom_id="music_cancel", style=4)
+                ]
+            ]
+        )
+
+
     # DSU Error handler
     @discordSuperUtils.CogManager.event(discordSuperUtils.MusicManager)
     async def on_music_error(self, ctx, error):
@@ -156,7 +198,7 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
         for error_type, response in errors.items():
             if isinstance(error, error_type):
                 await ctx.send(response,delete_after=5)
-                return
+                break
 
         print("unexpected error")
         raise error
@@ -203,14 +245,13 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
     @discordSuperUtils.CogManager.event(discordSuperUtils.MusicManager)
     async def on_queue_end(self, ctx):
         print(f"The queue has ended in {ctx}")
-        await ctx.send("Queue ended")
+        await self.set_default()
         # You could wait and check activity, etc...
 
     # On inactivity disconnect event
     @discordSuperUtils.CogManager.event(discordSuperUtils.MusicManager)
     async def on_inactivity_disconnect(self, ctx):
         print(f"I have left {ctx} due to inactivity")
-        await ctx.send("Left Music Channel due to inactivity")
 
 
     async def pause_resume(self, ctx):
@@ -228,7 +269,7 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
             if type == "down":
                 volume = int(current_volume) - 5
                 if int(current_volume) == 5:
-                    return await interaction.respond(content="최소 볼륨으로 더이상 낮출수없어요.")
+                    return await interaction.send(content="최소 볼륨으로 더이상 낮출수없어요.",ephemeral=False,delete_after=5)
             else:
                 volume = int(current_volume) + 5
             if await self.MusicManager.volume(ctx, volume):
@@ -237,6 +278,7 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
                                        [
                                             Button(emoji="⏯",custom_id="music_pr"),
                                             Button(emoji="⏹", custom_id="music_stop"),
+                                            Button(emoji="⏮", custom_id="music_previous"),
                                             Button(emoji="⏭", custom_id="music_skip"),
                                             Button(emoji="🔀", custom_id="music_shuffle")
                                        ],
@@ -244,77 +286,95 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
                                            Button(emoji="🔉", custom_id="music_volumedown"),
                                            Button(label=f"{volume}%",emoji="🔈", custom_id="music_volumestat",disabled=True),
                                            Button(emoji="🔊", custom_id="music_volumeup"),
-                                           Button(label="대기열 반복",emoji="🔁", custom_id="music_queueloop"),
-                                           Button(label="단일곡 반복",emoji="🔂", custom_id="music_oneloop")
+                                           Button(emoji="🔁", custom_id="music_queueloop"),
+                                           Button(emoji="🔂", custom_id="music_oneloop")
                                        ],
                                        [
+                                           Button(emoji=self.bot.get_emoji(914490775742586960), custom_id="music_auto"),
+                                           Button(emoji="📥", custom_id="music_join"),
                                            Button(emoji="❎", custom_id="music_cancel",style=4)
                                        ]
                                    ]
                 )
-            await interaction.respond(content=f"다음 볼륨으로 설정했어요 - {current_volume}%")
+            await interaction.send(content=f"다음 볼륨으로 설정했어요 - {current_volume}%",ephemeral=False,delete_after=5)
 
     async def loop(self, ctx,interaction:Interaction):
         is_loop = await self.MusicManager.loop(ctx)
 
         if is_loop is not None:
-            await interaction.respond(content=f"단일곡 셔플모드를 {'<:activ:896255701641474068> 활성화' if is_loop else '<:disactiv:896388083816218654> 비활성화'}했어요.\n임베드에 반영되기까지 시간이 조금 걸려요.")
+            await interaction.send(content=f"단일곡 루프모드를 {'<:activ:896255701641474068> 활성화' if is_loop else '<:disactiv:896388083816218654> 비활성화'}했어요.\n임베드에 반영되기까지 시간이 조금 걸려요.",ephemeral=False,delete_after=5)
 
     async def queueloop(self, ctx,interaction:Interaction):
         is_loop = await self.MusicManager.queueloop(ctx)
 
         if is_loop is not None:
-            await interaction.respond(content=f"대기열 셔플모드를 {'<:activ:896255701641474068> 활성화' if is_loop else '<:disactiv:896388083816218654> 비활성화'}했어요.\n임베드에 반영되기까지 시간이 조금 걸려요.")
+            await interaction.send(content=f"대기열 루프모드를 {'<:activ:896255701641474068> 활성화' if is_loop else '<:disactiv:896388083816218654> 비활성화'}했어요.\n임베드에 반영되기까지 시간이 조금 걸려요.",ephemeral=False,delete_after=5)
 
     async def skip(self, ctx,interaction:Interaction, index: int = None):
         if queue := (await self.MusicManager.get_queue(ctx)):
 
+            requester = (await self.MusicManager.now_playing(ctx)).requester
+
+            # Checking if the song is autoplayed
+            if requester is None:
+                await interaction.send(content="자동재생중인 음악을 스킵했어요.",ephemeral=False,delete_after=5)
+                await self.MusicManager.skip(ctx, index)
             # Checking if queue is empty and autoplay is disabled
             if not queue.queue and not queue.autoplay:
-                await interaction.respond(content="대기열의 마지막곡이여서 스킵할수없어요.")
+                await interaction.send(content="대기열의 마지막곡이여서 스킵할수없어요.",ephemeral=False,delete_after=5)
 
             else:
-                await self.MusicManager.skip(ctx, index)
+                skipped_player = await self.MusicManager.skip(ctx, index)
 
-                await interaction.respond(content="성공적으로 스킵했어요!")
+                await interaction.send(content="성공적으로 스킵했어요!",ephemeral=False,delete_after=5)
+                if not skipped_player.requester:
+                    await ctx.send("Autoplaying next song.")
+    async def previous(self, ctx,interaction:Interaction, index: int = None):
 
+        if previous_player := await self.MusicManager.previous(
+                ctx, index, no_autoplay=True
+        ):
+            await interaction.send(content=f"`{previous_player[0].title}`로 되돌렸어요!",ephemeral=False,delete_after=5)
 
+    async def autoplay(self, ctx,interaction:Interaction):
+        is_autoplay = await self.MusicManager.autoplay(ctx)
 
+        if is_autoplay is not None:
+            await interaction.send(content=f"대기열 자동재생 모드를 {'<:activ:896255701641474068> 활성화' if is_autoplay else '<:disactiv:896388083816218654> 비활성화'}했어요.\n임베드에 반영되기까지 시간이 조금 걸려요.",ephemeral=False,delete_after=5)
 
     async def shuffle(self, ctx,interaction:Interaction):
         is_shuffle = await self.MusicManager.shuffle(ctx)
 
         if is_shuffle is not None:
-            await interaction.respond(content=f"셔플모드를 {'<:activ:896255701641474068> 활성화' if is_shuffle else '<:disactiv:896388083816218654> 비활성화'}했어요.\n임베드에 반영되기까지 시간이 조금 걸려요.")
+            await interaction.send(content=f"셔플모드를 {'<:activ:896255701641474068> 활성화' if is_shuffle else '<:disactiv:896388083816218654> 비활성화'}했어요.\n임베드에 반영되기까지 시간이 조금 걸려요.",ephemeral=False,delete_after=5)
 
+    async def join(self, interaction:Interaction):
+        try:
+            user = self.bot.get_guild(interaction.guild_id).get_member(interaction.user.id)
+            await user.voice.channel.connect()
+            await interaction.send("정상적으로 채널에 접속했어요.",ephemeral=False,delete_after=5)
+        except:
+            print(str(traceback.format_exc()))
+            await interaction.send("이미 접속된 상태에요.",ephemeral=False,delete_after=5)
 
     topic = """
 ⏯ 일시정지/이어재생
 ⏹ 정지.
+⏮ 이전곡.
 ⏭ 스킵.
 🔁 대기열 루프모드.
 🔂 단일곡 루프모드.
 🔀 셔플모드.
 ❎ 대기열 초기화 및 음성채널 접속해제.
-🔉 볼륨 다운
-🔊 볼륨 업
+🔉 볼륨 다운.
+🔊 볼륨 업.
+<:robot:914490775742586960> 대기열 자동재생.
+📥 봇 접속.
     """
-    def default_music_embed(self):
-        em = discord.Embed(
-            title="현재 아무 곡도 재생 중이지 않아요.",
-            description="[초대](https://koreanbots.dev/bots/893841721958469703/invite) | [하트주기](https://koreanbots.dev/bots/893841721958469703/vote) | [지원서버](https://discord.gg/294KSUxcz2) | [깃허브](https://github.com/spacedev-official/harin)",
-            colour=discord.Colour.dark_purple()
-        )
-        em.set_image(url="https://media.discordapp.net/attachments/889514827905630290/914160536709636096/9dac48ccd1fc3509.png")
-        em.set_footer(text="아래 버튼을 통해 조작하실 수 있어요!")
-        em.add_field(name="루프모드",value="-",inline=False)
-        em.add_field(name="셔플모드",value="-",inline=False)
-        return em
+
     @commands.Cog.listener("on_message")
     async def music_message(self,message):
         if message.author.bot:
-            return
-        if message.author.id != 281566165699002379:
             return
         ctx = await self.bot.get_context(message)
         if message.content == "~setup":
@@ -326,17 +386,20 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
                                    [
                                         Button(emoji="⏯",custom_id="music_pr"),
                                         Button(emoji="⏹", custom_id="music_stop"),
+                                        Button(emoji="⏮", custom_id="music_previous"),
                                         Button(emoji="⏭", custom_id="music_skip"),
                                         Button(emoji="🔀", custom_id="music_shuffle")
                                    ],
                                    [
                                        Button(emoji="🔉", custom_id="music_volumedown"),
-                                       Button(label="-%",emoji="🔈",disabled=True),
+                                       Button(label="10%",emoji="🔈",disabled=True),
                                        Button(emoji="🔊", custom_id="music_volumeup"),
-                                       Button(label="대기열 반복",emoji="🔁", custom_id="music_queueloop"),
-                                       Button(label="단일곡 반복",emoji="🔂", custom_id="music_oneloop")
+                                       Button(emoji="🔁", custom_id="music_queueloop"),
+                                       Button(emoji="🔂", custom_id="music_oneloop")
                                    ],
                                    [
+                                       Button(emoji=self.bot.get_emoji(914490775742586960), custom_id="music_auto"),
+                                       Button(emoji="📥", custom_id="music_join"),
                                        Button(emoji="❎", custom_id="music_cancel",style=4)
                                    ]
                                ]
@@ -354,23 +417,16 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
     async def music_button_control(self,interaction:Interaction):
         ctx = await self.bot.get_context(interaction.message)
         if interaction.custom_id == "music_cancel":
-            await (
-                await interaction.channel.fetch_message(
-                    self.music_channel[interaction.channel_id]
-                )
-            ).edit(
-                content='** **\n**__대기열 목록__**:\n음성채널에 접속한뒤 이 채널에 제목이나 URL을 입력해주세요.',
-                embed=self.default_music_embed(),
-            )
             if await self.MusicManager.leave(ctx):
+                await self.set_default()
                 await interaction.send(content="대기열을 초기화하고 접속을 해제했어요!",ephemeral=False,delete_after=5)
         elif interaction.custom_id == "music_pr":
             resp = await self.pause_resume(ctx)
             if resp['type']:
                 if resp['stat'] == "resume":
-                    await interaction.send(content="이어서 재생할게요!")
+                    await interaction.send(content="이어서 재생할게요!",ephemeral=False,delete_after=5)
                 else:
-                    await interaction.send(content="음악을 일시정지했어요.")
+                    await interaction.send(content="음악을 일시정지했어요.",ephemeral=False,delete_after=5)
         elif interaction.custom_id == "music_stop":
             await self.MusicManager.cleanup(voice_client=None, guild=ctx.guild)
             ctx.voice_client.stop()
@@ -387,6 +443,12 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
             await self.queueloop(ctx,interaction)
         elif interaction.custom_id == "music_oneloop":
             await self.loop(ctx,interaction)
+        elif interaction.custom_id == "music_previous":
+            await self.previous(ctx,interaction)
+        elif interaction.custom_id == "music_auto":
+            await self.autoplay(ctx,interaction)
+        elif interaction.custom_id == "music_join":
+            await self.join(interaction)
 
 
 
