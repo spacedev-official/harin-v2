@@ -79,7 +79,8 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
     def __init__(self, bot: MyBot):
         self.bot = bot
         self.skip_votes = {}  # Skip vote counter dictionary
-
+        self.music_channel = {}
+        self.channel = 0
         # self.client_secret = "" # spotify client_secret
         # self.client_id = "" # spotify client_id
 
@@ -97,6 +98,18 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
         self.ImageManager = discordSuperUtils.ImageManager()
         super().__init__()
 
+    async def queue(self, ctx):
+        try:
+            if queue := await self.MusicManager.get_queue(ctx):
+                if len(queue.queue) == 1:
+                    return ["대기열 비어있음"]
+                return [
+                    f"{x.title} Requester: {x.requester.display_name if x.requester else 'Autoplay'}"for x in queue.queue
+                ]
+
+        except discordSuperUtils.QueueEmpty:
+            return ["대기열 비어있음"]
+
     # Play function
     async def play_cmd(self, ctx, query):
         async with ctx.typing():
@@ -109,35 +122,42 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
             await self.MusicManager.queue_add(players=player, ctx=ctx)
 
             if not await self.MusicManager.play(ctx):
-                await ctx.send(f"Added {player[0].title} to song queue.")
+                queue_resp = await self.queue(ctx)
+                queue_res = "\n".join(queue_resp)
+                msg = await ctx.channel.fetch_message(self.music_channel[ctx.channel.id])
+                await msg.edit(
+                    content=f'** **\n**__대기열 목록__**:\n{queue_res}',
+                    embed=msg.embeds[0],
+                )
+                await ctx.send(f"`{player[0].title}`(을)를 대기열에 추가했어요.",delete_after=5)
             else:
-                await ctx.send("✅")
+                await ctx.send("✅",delete_after=5)
         else:
-            await ctx.send("Query not found.")
+            await ctx.send("Query not found.",delete_after=5)
 
     # DSU Error handler
     @discordSuperUtils.CogManager.event(discordSuperUtils.MusicManager)
     async def on_music_error(self, ctx, error):
         # sourcery skip: remove-redundant-fstring
         errors = {
-            discordSuperUtils.NotPlaying: "Not playing any music right now...",
-            discordSuperUtils.NotConnected: f"Bot not connected to a voice channel!",
-            discordSuperUtils.NotPaused: "Player is not paused!",
-            discordSuperUtils.QueueEmpty: "The queue is empty!",
-            discordSuperUtils.AlreadyConnected: "Already connected to voice channel!",
-            discordSuperUtils.QueueError: "There has been a queue error!",
-            discordSuperUtils.SkipError: "There is no song to skip to!",
-            discordSuperUtils.UserNotConnected: "User is not connected to a voice channel!",
-            discordSuperUtils.InvalidSkipIndex: "That skip index is invalid!",
+            discordSuperUtils.NotPlaying: "지금 아무 음악도 재생중이지 않아요...",
+            discordSuperUtils.NotConnected: f"저는 보이스채널에 접속해있지않아요!",
+            discordSuperUtils.NotPaused: "음악이 멈추어져있지않아요!",
+            discordSuperUtils.QueueEmpty: "대기열이 비어있어요!",
+            discordSuperUtils.AlreadyConnected: "이미 보이스채널에 접속해있어요!",
+            discordSuperUtils.SkipError: "스킵할 곡이 없어요!",
+            discordSuperUtils.UserNotConnected: "요청자님이 음성채널에 접속해있지않아요!",
+            discordSuperUtils.InvalidSkipIndex: "스킵될 값을 사용할수없어요!",
         }
 
         for error_type, response in errors.items():
             if isinstance(error, error_type):
-                await ctx.send(response)
+                await ctx.send(response,delete_after=5)
                 return
 
         print("unexpected error")
         raise error
+
 
     # On music play event
     @discordSuperUtils.CogManager.event(discordSuperUtils.MusicManager)
@@ -149,15 +169,22 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
         requester = player.requester.mention if player.requester else "Autoplay"
 
         embed = discord.Embed(
-            title="Now Playing",
             color=discord.Color.from_rgb(255, 255, 0),
             timestamp=datetime.datetime.now(datetime.timezone.utc),
-            description=f"[**{player.title}**]({player.url}) by **{uploader}**",
+            description="[초대](https://koreanbots.dev/bots/893841721958469703/invite) | [하트주기](https://koreanbots.dev/bots/893841721958469703/vote) | [지원서버](https://discord.gg/294KSUxcz2) | [깃허브](https://github.com/spacedev-official/harin)",
         )
+        embed.set_author(name=f"{player.title} upload by {uploader}",url=player.url)
         embed.add_field(name="Requested by", value=requester)
-        embed.set_thumbnail(url=thumbnail)
+        embed.set_image(url=thumbnail)
+        queue_resp = await self.queue(ctx)
+        queue_res = "\n".join(queue_resp)
+        await (
+            await ctx.channel.fetch_message(self.music_channel[ctx.channel.id])
+        ).edit(
+            content=f'** **\n**__대기열 목록__**:\n{queue_res}',
+            embed=embed,
+        )
 
-        await ctx.send(embed=embed)
         # Clearing skip votes for each song
         if self.skip_votes.get(ctx.guild.id):
             self.skip_votes.pop(ctx.guild.id)
@@ -179,124 +206,12 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
     # You can add this to your existing on_ready function
 
     # Leave command
-    @commands.command()
-    async def leave(self, ctx):
+    """async def leave(self, ctx):
         if await self.MusicManager.leave(ctx):
-            await ctx.send("👋")
+            await ctx.send("👋",delete_after=5)
             # Or
-            # await message.add_reaction("👋")
+            # await message.add_reaction("👋")"""
 
-    # Lyrics command
-    @commands.command()
-    async def lyrics(self, ctx, *, query=None):
-        if response := await self.MusicManager.lyrics(ctx, query):
-            # If lyrics are found
-            title, author, query_lyrics = response
-            # Formatting the lyrics
-            splitted = query_lyrics.split("\n")
-            res = []
-            current = ""
-            for i, split in enumerate(splitted):
-                if len(splitted) <= i + 1 or len(current) + len(splitted[i + 1]) > 1024:
-                    res.append(current)
-                    current = ""
-                    continue
-                current += split + "\n"
-            # Creating embeds list for PageManager
-            embeds = [
-                discord.Embed(
-                    title=f"Lyrics for '{title}' by '{author}', (Page {i + 1}/{len(res)})",
-                    description=x,
-                )
-                for i, x in enumerate(res)
-            ]
-            # editing the embeds
-            for embed in embeds:
-                embed.timestamp = datetime.datetime.utcnow()
-
-            page_manager = discordSuperUtils.PageManager(
-                ctx,
-                embeds,
-                public=True,
-            )
-
-            await page_manager.run()
-
-        else:
-            await ctx.send("No lyrics were found for the song")
-
-    # Now playing command
-    @commands.command()
-    async def now_playing(self, ctx):
-        if player := await self.MusicManager.now_playing(ctx):
-            # Played duration
-            duration_played = await self.MusicManager.get_player_played_duration(
-                ctx, player
-            )
-
-            # Loop status
-            loop = (await self.MusicManager.get_queue(ctx)).loop
-            if loop == discordSuperUtils.Loops.LOOP:
-                loop_status = "Looping enabled."
-            elif loop == discordSuperUtils.Loops.QUEUE_LOOP:
-                loop_status = "Queue looping enabled."
-            else:
-                loop_status = "Looping Disabled"
-
-            # Fecthing other details
-            thumbnail = player.data["videoDetails"]["thumbnail"]["thumbnails"][-1][
-                "url"
-            ]
-            title = player.title
-            url = player.url
-            uploader = player.data["videoDetails"]["author"]
-            views = player.data["videoDetails"]["viewCount"]
-            rating = player.data["videoDetails"]["averageRating"]
-            requester = player.requester.mention if player.requester else "Autoplay"
-
-            embed = discord.Embed(
-                title="Now playing",
-                description=f"**{title}**",
-                timestamp=datetime.datetime.utcnow(),
-                color=discord.Color.from_rgb(0, 255, 255),
-            )
-            embed.add_field(
-                name="Played",
-                value=self.MusicManager.parse_duration(
-                    duration=duration_played, hour_format=False
-                ),
-            )
-            embed.add_field(
-                name="Duration",
-                value=self.MusicManager.parse_duration(
-                    duration=player.duration, hour_format=False
-                ),
-            )
-            embed.add_field(name="Loop", value=loop_status)
-            embed.add_field(name="Requested by", value=requester)
-            embed.add_field(name="Uploader", value=uploader)
-            embed.add_field(name="URL", value=f"[Click]({url})")
-            embed.add_field(name="Views", value=parse_count(int(views)))
-            embed.add_field(name="Rating", value=rating)
-            embed.set_thumbnail(url=thumbnail)
-            embed.set_image(url=r"https://i.imgur.com/ufxvZ0j.gif")
-            embed.set_author(name=ctx.author.name, icon_url=ctx.author.avatar_url)
-
-            await ctx.send(embed=embed)
-
-    # Join voice channel command
-    @commands.command()
-    @ensure_voice_state()
-    async def join(self, ctx):
-        if await self.MusicManager.join(ctx):
-            await ctx.send("Joined Voice Channel")
-
-    # Play song command
-    @commands.command()
-    @ensure_voice_state()
-    async def play(self, ctx, *, query: str):
-        # Calling the play function
-        await Music.play_cmd(self, ctx, query)
 
     # Pause command
     @commands.command()
@@ -340,29 +255,6 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
 
         if is_loop is not None:
             await ctx.send(f"Queue Looping {'Enabled' if is_loop else 'Disabled'}")
-
-    # History command
-    @commands.command()
-    async def history(self, ctx, songs_per_page: int = 15):
-        if queue := (await self.MusicManager.get_queue(ctx)):
-            formatted_history = [
-                f"""**Title:** [{x.title}]({x.url})
-                Requester: {x.requester.mention if x.requester else 'Autoplay'}"""
-                for x in queue.history
-            ]
-
-            embeds = discordSuperUtils.generate_embeds(
-                formatted_history,
-                "Song History",
-                "Shows all played songs",
-                songs_per_page,
-                string_format="{}",
-            )
-
-            for embed in embeds:
-                embed.timestamp = datetime.datetime.utcnow()
-
-            await discordSuperUtils.PageManager(ctx, embeds, public=True).run()
 
     # Stop command
     @commands.command()
@@ -439,70 +331,6 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
                 else:
                     await ctx.send("You have already voted to skip this song.")
 
-    # Queue command
-    @commands.command()
-    async def queue(self, ctx, songs_per_page: int = 10):
-        if queue := await self.MusicManager.get_queue(ctx):
-            formatted_queue = [
-                f"""**Title:** [{x.title}]({x.url})
-                Requester: {x.requester.mention if x.requester else 'Autoplay'}"""
-                for x in queue.queue
-            ]
-
-            player = await self.MusicManager.now_playing(ctx)
-            uploader = player.data["videoDetails"]["author"]
-            thumbnail = player.data["videoDetails"]["thumbnail"]["thumbnails"][-1][
-                "url"
-            ]
-
-            embeds = discordSuperUtils.generate_embeds(
-                formatted_queue,
-                "Queue",  # Title of embed
-                f"""**Now Playing:
-                [{player.title}]({player.url})** by **{uploader}**""",
-                songs_per_page,  # Number of rows in one pane
-                color=11658814,  # Color of embed in decimal color
-                string_format="{}",
-            )
-
-            embeds[0].set_thumbnail(url=thumbnail)
-            for embed in embeds:
-                embed.timestamp = datetime.datetime.utcnow()
-
-            await discordSuperUtils.PageManager(ctx, embeds, public=True).run()
-
-    # Loop status command
-    @commands.command()
-    async def loop_check(self, ctx):
-        if queue := await self.MusicManager.get_queue(ctx):
-            loop = queue.loop
-            loop_status = None
-
-            if loop == discordSuperUtils.Loops.LOOP:
-                loop_status = "Looping enabled."
-
-            elif loop == discordSuperUtils.Loops.QUEUE_LOOP:
-                loop_status = "Queue looping enabled."
-
-            elif loop == discordSuperUtils.Loops.NO_LOOP:
-                loop_status = "No loop enabled."
-
-            if loop_status:
-                embed = discord.Embed(
-                    title=loop_status,
-                    color=0x00FF00,
-                    timestamp=datetime.datetime.utcnow(),
-                )
-
-                await ctx.send(embed=embed)
-
-    # Autoplay command
-    @commands.command()
-    async def autoplay(self, ctx):
-        is_autoplay = await self.MusicManager.autoplay(ctx)
-
-        if is_autoplay is not None:
-            await ctx.send(f"Autoplay toggled to {is_autoplay}")
 
     # Shuffle command
     @commands.command()
@@ -511,103 +339,6 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
 
         if is_shuffle is not None:
             await ctx.send(f"Shuffle toggled to {is_shuffle}")
-
-    # Previous/Rewind command
-    @commands.command()
-    async def previous(self, ctx, index: int = None):
-
-        if previous_player := await self.MusicManager.previous(
-            ctx, index, no_autoplay=True
-        ):
-            await ctx.send(f"Rewinding from {previous_player[0].title}")
-
-    # Playlist command
-    @commands.group(invoke_without_command=True)
-    async def playlists(self, ctx, user: discord.user = None):
-        user = user or ctx.author
-        user_playlists = await MusicManager.get_user_playlists(user)
-
-        if not user_playlists:
-            await ctx.send(f"No playlists of {user.mention} were found.")
-            return
-
-        formatted_playlists = [
-            f"""**Title:** '{user_playlist.playlist.title}'
-            Total Songs: {len(user_playlist.playlist.songs)}
-            ID: `{user_playlist.id}`"""
-            for user_playlist in user_playlists
-        ]
-
-        embeds = discordSuperUtils.generate_embeds(
-            formatted_playlists,
-            f"Playlists of {user}",
-            f"Showing {user.mention}'s playlists.",
-            15,
-            string_format="{}",
-        )
-
-        for embed in embeds:
-            embed.timestamp = datetime.datetime.utcnow()
-
-        page_manager = discordSuperUtils.PageManager(ctx, embeds, public=True)
-        await page_manager.run()
-
-    # Playlist add command
-    @playlists.command()
-    async def add(self, ctx, url: str):
-        added_playlist = await MusicManager.add_playlist(ctx.author, url)
-
-        if not added_playlist:
-            await ctx.send("Playlist URL not found!")
-            return
-
-        await ctx.send(f"Playlist added with ID `{added_playlist.id}`")
-
-    @playlists.command()
-    @ensure_voice_state()
-    async def play(self, ctx, index: int, user: discord.member = None):
-        # Checking valid index
-        index = indexer(index)
-
-        index -= 1
-        user = user or ctx.author
-
-        # Fetching user's playlists
-        playlists = await self.MusicManager.get_user_playlists(user, partial=True)
-
-        if not playlists:
-            await ctx.send(f"No playlists of {user.mention} were found.")
-            return
-
-        # Fetching the playlist at index
-        playlist = playlists[index]
-
-        if not playlist:
-            await ctx.send("No playlist at this index.")
-            return
-
-        # Fetching full playlist
-        user_playlist = await self.MusicManager.get_playlist(ctx.author, playlist.id)
-
-        # Playing the playlist
-        async with ctx.typing():
-            players = await MusicManager.create_playlist_players(
-                user_playlist.playlist, ctx.author
-            )
-
-            if players:
-                if not ctx.voice_client or not ctx.voice_client.is_connected():
-                    await self.MusicManager.join(ctx)
-
-                if await self.MusicManager.queue_add(
-                    players=players, ctx=ctx
-                ) and not await self.MusicManager.play(ctx):
-                    await ctx.send(f"Added playlist {playlist.playlist.title}")
-                else:
-                    await ctx.send("✅")
-
-            else:
-                await ctx.send("Query not found.")
 
 
 # Bot error handler
@@ -636,8 +367,9 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
 ⏭ 스킵.
 🔁 루프모드.
 🔀 셔플모드.
-⭐ 플레이리스트 추가.
 ❌ 대기열 초기화 및 음성채널 접속해제.
+🔉 볼륨 다운
+🔊 볼륨 업
     """
     def default_music_embed(self):
         em = discord.Embed(
@@ -647,18 +379,20 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
         )
         em.set_image(url="https://media.discordapp.net/attachments/889514827905630290/914160536709636096/9dac48ccd1fc3509.png")
         em.set_footer(text="아래 버튼을 통해 조작하실 수 있어요!")
+        em.add_field(name="루프모드",value="-",inline=False)
+        em.add_field(name="셔플모드",value="-",inline=False)
         return em
     @commands.Cog.listener("on_message")
     async def music_message(self,message):
         if message.author.bot:
             return
         if message.author.id != 281566165699002379:
-            return await message.channel.send("테스트봇은 오너만 조작이 가능해요.")
+            return
         ctx = await self.bot.get_context(message)
         if message.content == "~setup":
             channel = await message.guild.create_text_channel(name="music-test",topic=self.topic)
             await channel.send("https://media.discordapp.net/attachments/889514827905630290/896359450544308244/37cae031dc5a6c40.png")
-            await channel.send(content="** **\n**__대기열 목록__**:\n음성채널에 접속한뒤 이 채널에 제목이나 URL을 입력해주세요.",
+            msg = await channel.send(content="** **\n**__대기열 목록__**:\n음성채널에 접속한뒤 이 채널에 제목이나 URL을 입력해주세요.",
                                embed=self.default_music_embed(),
                                components=[
                                    [
@@ -669,12 +403,35 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
                                         Button(emoji="🔀", custom_id="music_shuffle")
                                    ],
                                    [
-                                       Button(emoji="⭐", custom_id="music_addplaylist"),
+                                       Button(emoji="🔉", custom_id="music_volumedown"),
+                                       Button(label="50%",emoji="🔈", custom_id="music_volumestat",disabled=True),
+                                       Button(emoji="🔊", custom_id="music_volumeup")
+                                   ],
+                                   [
                                        Button(emoji="❌", custom_id="music_cancel")
                                    ]
                                ]
                                )
+            self.music_channel[channel.id] = msg.id
+            self.channel = channel.id
             await message.channel.send(f"<a:check:893674152672776222> 성공적으로 뮤직채널({channel.mention})을 만들었어요!\n해당 채널의 이름과 위치는 마음껏 커스터마이징이 가능하답니다!")
+        if message.channel.id == self.channel:
+            await Music.play_cmd(self, ctx, message.content)
+            await message.delete()
 
+    @commands.Cog.listener(name="on_button_click")
+    async def music_button_control(self,interaction:Interaction):
+        ctx = await self.bot.get_context(interaction.message)
+        if interaction.custom_id == "music_cancel":
+            await (
+                await interaction.channel.fetch_message(
+                    self.music_channel[interaction.channel_id]
+                )
+            ).edit(
+                content='** **\n**__대기열 목록__**:\n음성채널에 접속한뒤 이 채널에 제목이나 URL을 입력해주세요.',
+                embed=self.default_music_embed(),
+            )
+            if await self.MusicManager.leave(ctx):
+                await interaction.send(content="대기열을 초기화하고 접속을 해제했어요!",ephemeral=False,delete_after=5)
 def setup(bot):
     bot.add_cog(Music(bot))

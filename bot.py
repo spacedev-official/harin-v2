@@ -15,8 +15,10 @@ class MyBot(commands.Bot):
         AutoCogs(self)
     async def on_ready(self):
         """Called upon the READY event"""
-        await self.change_presence(status=discord.Status.online, activity=discord.Activity(name="하린아 도움 | 서버: {}".format(len(self.guilds)),
-                                                                                               type=discord.ActivityType.playing))
+        #await self.change_presence(status=discord.Status.online, activity=discord.Activity(name="하린아 도움 | 서버: {}".format(len(self.guilds)),type=discord.ActivityType.playing))
+        await self.change_presence(status=discord.Status.online,
+                                   activity=discord.Activity(name="하린봇 V2 테스트",
+                                                             type=discord.ActivityType.playing))
         print("Bot is ready.")
 
     async def is_owner(self, user):
