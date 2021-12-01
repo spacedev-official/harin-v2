@@ -1,3 +1,4 @@
+import discord
 from discord.ext.commands import command, Cog
 from py_cord_components import (
     Button,
@@ -11,15 +12,14 @@ class ExampleCog(Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot = bot
+        self.cogs_name = {
+            "temporary":"개인채널",
+            "music":"뮤직"
+        }
 
-    @command()
-    async def button(self, ctx):
-        msg = await ctx.reply("Buttons!", components=[Button(label="Button", custom_id="button1")])
-        interaction = await self.bot.wait_for(
-            "button_click", check=lambda inter: inter.custom_id == "button1"
-        )
-        await msg.disable_components()
-        await interaction.send(content="Button Clicked")
+    @command(name="도움",aliases=["도움말","help"])
+    async def help(self,ctx):
+        await ctx.reply("~msetup\n뮤직기능을 사용하기위한 명령어입니다.\n\n~tsetup\n개인채널을 사용하기위한 명령어입니다.")
 
 
 def setup(bot):

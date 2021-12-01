@@ -1,8 +1,9 @@
 import asyncio
+import random
 import traceback
-
+import aiosqlite
 import discord
-from discord.ext.commands import command, Cog
+from discord.ext.commands import Cog,command
 from py_cord_components import (
     Button,
     ButtonStyle,
@@ -11,10 +12,16 @@ from py_cord_components import (
     Interaction
 )
 from bot import MyBot
+from tools.database_tool import temporary_caching, dump_temporary_caching, DataBaseTool
+
+
 class temporary(Cog):
+    """
+    개인채널 관련 소스
+    """
     def __init__(self, bot:MyBot):
         self.bot = bot
-        self.temp = {}
+        self.temp = temporary_caching()
         #self.temp_text_channel = {}
         super().__init__()
 
@@ -82,7 +89,11 @@ class temporary(Cog):
                            )
 
     async def create_temporary_channel(self,member:discord.Member):
-        category: discord.CategoryChannel = self.bot.get_channel(914769237971697715)
+        #self.temp = temporary_caching()
+        db = await aiosqlite.connect("db/db.db")
+        conn = await db.execute("SELECT * FROM temporary WHERE guild = ?", (member.guild.id,))
+        resp = await conn.fetchone()
+        category: discord.CategoryChannel = self.bot.get_channel(resp[2])
         overwrites = {
             member: discord.PermissionOverwrite(read_messages=True, send_messages=True, connect=True)
         }
@@ -98,23 +109,27 @@ class temporary(Cog):
         await voice_channel.set_permissions(member.guild.default_role, connect=False)
         await text_channel.set_permissions(member.guild.default_role, read_messages=False, send_messages=False)
         #self.temp_text_channel[text_channel.id] = [member.id]
-        data = self.temp[member.guild.id] = {}
-        data[voice_channel.id] = {
+        data = self.temp[str(member.guild.id)] = {}
+        data[str(voice_channel.id)] = {
             "owner":member.id,
             "co_owners":[member.id],
             "members":[member.id],
             "voice": voice_channel.id,
             "text": text_channel.id
         }
+        dump_temporary_caching(self.temp)
         await self.send_temporary_dafault_chat(member,text_channel)
 
     async def delete_temporary_channel(self,member:discord.Member,voice:discord.VoiceState):
         try:
-            voice_channel = self.bot.get_channel(self.temp[member.guild.id][voice.channel.id]['voice'])
-            text_channel = self.bot.get_channel(self.temp[member.guild.id][voice.channel.id]['text'])
+            #self.temp = temporary_caching()
+            temp = self.temp[str(member.guild.id)][str(voice.channel.id)]
+            voice_channel = self.bot.get_channel(temp['voice'])
+            text_channel = self.bot.get_channel(temp['text'])
             await voice_channel.delete()
             await text_channel.delete()
-            del self.temp[member.guild.id][voice.channel.id]
+            del self.temp[str(member.guild.id)][str(voice.channel.id)]
+            dump_temporary_caching(self.temp)
         except:
             print(traceback.format_exc())
 
@@ -128,11 +143,15 @@ class temporary(Cog):
         except asyncio.TimeoutError:
             await channel.send(content="30초가 지나 취소되었어요. 다시 요청해주세요.", delete_after=5)
             return
+        #self.temp = temporary_caching()
         member_id = int(msg.content)
         member = self.bot.get_guild(interaction.guild_id).get_member(member_id)
         text_channel = self.bot.get_channel(interaction.channel_id)
         voice_channel = interaction.user.voice.channel
-        (self.temp[interaction.guild_id][voice_channel.id]['members']).append(member_id)
+        temp = self.temp[str(interaction.guild.id)][str(voice_channel.id)]
+        if member_id in temp['members']:
+            return await channel.send(content=f"{member.mention}님은 이미 등록되어있어요.",delete_after=5)
+        (temp['members']).append(member_id)
         await text_channel.set_permissions(member, read_messages=True, send_messages=True)
         await voice_channel.set_permissions(member, connect=True)
         await bot_msg.delete()
@@ -149,13 +168,19 @@ class temporary(Cog):
         except asyncio.TimeoutError:
             await channel.send(content="30초가 지나 취소되었어요. 다시 요청해주세요.", delete_after=5)
             return
+        #self.temp = temporary_caching()
         member_id = int(msg.content)
         member: discord.Member = self.bot.get_guild(interaction.guild_id).get_member(member_id)
         text_channel = self.bot.get_channel(interaction.channel_id)
         # voice_channel = interaction.user.voice.channel
-        list(self.temp[interaction.guild_id][voice_channel.id]['members']).remove(member_id)
+        temp = self.temp[str(interaction.guild.id)][str(voice_channel.id)]
+        if not member_id in temp['members']:
+            return await channel.send(content=f"{member.display_name}님은 등록되어있지 않아요!", delete_after=5)
+        if member_id == temp['owner']:
+            return await channel.send(content="자기자신을 킥할수없어요.", delete_after=5)
+        temp['members'].remove(member_id)
         try:
-            list(self.temp[interaction.guild_id][voice_channel.id]['co_owners']).remove(member_id)
+            temp['co_owners'].remove(member_id)
         except:
             pass
         await text_channel.set_permissions(member, read_messages=False, send_messages=False)
@@ -178,11 +203,15 @@ class temporary(Cog):
         except asyncio.TimeoutError:
             await channel.send(content="30초가 지나 취소되었어요. 다시 요청해주세요.", delete_after=5)
             return
+        #self.temp = temporary_caching()
         member_id = int(msg.content)
+        temp = self.temp[str(interaction.guild.id)][str(voice_channel.id)]
         member: discord.Member = self.bot.get_guild(interaction.guild_id).get_member(member_id)
-        if member_id in self.temp[interaction.guild_id][voice_channel.id]['co_owners']:
-            return await interaction.send(content=f"{member.mention}님은 이미 관리자로 등록되어있어요.", delete_after=5)
-        (self.temp[interaction.guild_id][voice_channel.id]['co_owners']).append(member_id)
+        if member_id in temp['co_owners']:
+            return await channel.send(content=f"{member.mention}님은 이미 관리자로 등록되어있어요.", delete_after=5)
+        if member_id == temp['owner']:
+            return await channel.send(content="자기자신을 추가할수없어요.",delete_after=5)
+        (temp['co_owners']).append(member_id)
         await bot_msg.delete()
         await msg.delete()
         await channel.send(content=f"✅ 성공적으로 {member.mention}님을 관리자로 등록했어요.", delete_after=5)
@@ -196,8 +225,15 @@ class temporary(Cog):
         except asyncio.TimeoutError:
             await channel.send(content="30초가 지나 취소되었어요. 다시 요청해주세요.", delete_after=5)
             return
-        name = msg.content
-        await voice_channel.edit(name=name)
+        #self.temp = temporary_caching()
+        name = str(msg.content)
+        try:
+            await voice_channel.edit(name=name)
+        except:
+            await bot_msg.delete()
+            await msg.delete()
+            await channel.send(content="지원하지않는 글자가 포함되어있는것같아요. 다시 시도해주세요.", delete_after=5)
+            return
         await bot_msg.delete()
         await msg.delete()
         await channel.send(content=f"✅ 성공적으로 `{name}`으로 변경했어요.", delete_after=5)
@@ -212,22 +248,96 @@ class temporary(Cog):
         except asyncio.TimeoutError:
             await channel.send(content="30초가 지나 취소되었어요. 다시 요청해주세요.", delete_after=5)
             return
+        #self.temp = temporary_caching()
         limit = msg.content
+        if int(limit) >= 51:
+            return await channel.send(content="앗! 인원제한은 50명까지만 가능해요! 다시 설정해주세요!")
         await voice_channel.edit(user_limit=limit)
         await bot_msg.delete()
         await msg.delete()
         await channel.send(content=f"✅ 성공적으로 `{limit}`으로 변경했어요.", delete_after=5)
 
+    @command(name="tsetup")
+    async def tsetup(self,ctx):
+        db = await aiosqlite.connect("db/db.db")
+        check_ = await DataBaseTool(db).check_db_temporary(guild=ctx.guild)
+        if not check_:
+            return await ctx.reply("❎ 이미 설정되어있는것같아요!")
+        text_channel = await ctx.guild.create_text_channel(name="❓개인채널 안내")
+        voice_channel = await ctx.guild.create_voice_channel(name="➕ 개인채널 생성")
+        category = await ctx.guild.create_category(name="개인채널 리스트")
+        em = discord.Embed(
+            title="개인채널에 대한 안내",
+            description="개인채널에 대해서 안내해드릴게요.",
+            colour=discord.Colour.random()
+        )
+        em.add_field(
+            name="1️⃣ 개인채널이란?",
+            value="개인채널 생성용 음성채팅에 접속하면 자동으로 자신만의 채널이 생성되어요.\n그러나 자신만의 음성채널에서 나가면 채널이 사라지거나 주인권한이 같이 접속해있는 유저에게 위임되어요."
+        )
+        em.add_field(
+            name="2️⃣ 개인채널 사용법",
+            value="아래에 있는 설명을 참고해주세요! @.@\n참! 그리고 모든 조작은 채널생성시에 따로 마련된 버튼으로 조작이 가능하답니다!"
+        )
+        em.add_field(
+            name="<:blurple_invite:914773712895615016>",
+            value="특정유저에게 채널 접속권한을 부여해요.\n그러나 서버관리자는 마음대로 들어올수있고 채널을 볼수있어요.",
+            inline=False
+        )
+        em.add_field(
+            name="🚫",
+            value="특정유저에게 부여된 접속권한을 빼앗고 추방해요."
+        )
+        em.add_field(
+            name="👑",
+            value="특정유저에게 관리자 권한을 부여해요."
+        )
+        em.add_field(
+            name="✏",
+            value="만들어진 음성 채널의 이름을 수정해요."
+        )
+        em.add_field(
+            name="👥",
+            value="접속가능인원을 수정해요. 최대 50명까지 가능해요."
+        )
+        em.add_field(
+            name="📥",
+            value="채널 초대 텍스트를 발급해요."
+        )
+        await text_channel.send(embed=em)
+        await DataBaseTool(db).add_temporary_data(guild=ctx.guild,voice_channel=voice_channel,category_channel=category)
+        await ctx.reply("✅ 성공적으로 설정되었어요!\n생성된 채널들의 이름과 위치,권한은 마음껏 커스터마이징이 가능하지만 임의로 삭제하시면 오류가 발생할수있어요.")
+
     @Cog.listener('on_voice_state_update')
     async def temporary_event(self,member:discord.Member, before:discord.VoiceState, after:discord.VoiceState):
         if before.channel is None and after.channel is not None and not member.bot:
-            if after.channel.id == 914761852708331560:
-                await self.create_temporary_channel(member)
+            db = await aiosqlite.connect("db/db.db")
+            conn = await db.execute("SELECT * FROM temporary WHERE guild = ?",(member.guild.id,))
+            resp = await conn.fetchone()
+            if resp != None:
+                if after.channel.id == resp[1]:
+                    await self.create_temporary_channel(member)
         elif not member.bot:
+            #self.temp = temporary_caching()
             try:
-                if before.channel.id == self.temp[member.guild.id][before.channel.id]['voice']\
-                        and member.id == self.temp[member.guild.id][before.channel.id]['owner']:
-                    await self.delete_temporary_channel(member,voice=before)
+                temp = self.temp[str(member.guild.id)][str(before.channel.id)]
+                if before.channel.id == temp['voice']:
+                    if member.id == temp['owner']:
+                        if len(before.channel.members) + 1 == 1:
+                            await self.delete_temporary_channel(member, voice=before)
+                            return
+                        temp['co_owners'].remove(member.id)
+                        temp['members'].remove(member.id)
+                        if len(temp['members']) >= 1:
+                            rand_choice = random.choice(temp['members'])
+                            temp['owner'] = rand_choice
+                            if rand_choice not in temp['co_owners']:
+                                temp['co_owners'].append(rand_choice)
+                            await self.bot.get_channel(temp['text']).send(
+                                content=f"원 오너인 {self.bot.get_user(member.id).name}님이 나가셔서 {self.bot.get_user(rand_choice).mention}님이 원주인으로 권한이 승격되었습니다."
+                            )
+                            dump_temporary_caching(self.temp)
+                            return
             except:
                 pass
     @Cog.listener(name="on_button_click")
@@ -238,21 +348,27 @@ class temporary(Cog):
         except:
             return await interaction.respond(content="음성채널에 접속하셔야만 조작이 가능해요.")
         voice_channel: discord.VoiceChannel = interaction.user.voice.channel
-        if interaction.custom_id.startswith("temporary_"):
-            if not interaction.user.id in self.temp[interaction.guild_id][voice_channel.id]['co_owners']:
-                return await interaction.send(content="관리자가 아니어서 사용할수없어요.",delete_after=5)
-        if interaction.custom_id == "temporary_addmember":
-            await self.temporary_addmember(interaction)
-        if interaction.custom_id == "temporary_kick":
-            await self.temporary_kick(interaction,voice_channel)
-        if interaction.custom_id == "temporary_addcoowner":
-            await self.temporary_addcoowner(interaction,voice_channel)
-        if interaction.custom_id == "temporary_rename":
-            await self.temporary_rename(interaction,voice_channel)
-        if interaction.custom_id == "temporary_editlimit":
-            await self.temporary_editlimit(interaction,voice_channel)
-        if interaction.custom_id == "temporary_code":
-            await interaction.send(content=f"다음 코드를 복사해 붙여넣으세요 `<#{interaction.channel_id}>`",ephemeral=False,delete_after=5)
+        try:
+            temp = self.temp[str(interaction.guild.id)][str(voice_channel.id)]
+            if temp['text'] == interaction.channel_id:
+                if interaction.custom_id.startswith("temporary_"):
+                    if not interaction.user.id in temp['co_owners']:
+                        return await interaction.send(content="관리자가 아니어서 사용할수없어요.",delete_after=5)
+                if interaction.custom_id == "temporary_addmember":
+                    await self.temporary_addmember(interaction)
+                if interaction.custom_id == "temporary_kick":
+                    await self.temporary_kick(interaction,voice_channel)
+                if interaction.custom_id == "temporary_addcoowner":
+                    await self.temporary_addcoowner(interaction,voice_channel)
+                if interaction.custom_id == "temporary_rename":
+                    await self.temporary_rename(interaction,voice_channel)
+                if interaction.custom_id == "temporary_editlimit":
+                    await self.temporary_editlimit(interaction,voice_channel)
+                if interaction.custom_id == "temporary_code":
+                    await interaction.send(content=f"다음 코드를 복사해 붙여넣으세요.\n 텍스트 채널 - `<#{interaction.channel_id}>`\n음성 채널 - `<#{voice_channel.id}>`",ephemeral=False,delete_after=5)
+                dump_temporary_caching(self.temp)
+        except KeyError:
+            return
 
 
 def setup(bot):

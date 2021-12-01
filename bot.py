@@ -28,7 +28,7 @@ class MyBot(commands.Bot):
 
 
 INTENTS = discord.Intents.all()
-my_bot = MyBot(command_prefix=commands.when_mentioned_or("하린아 ","하린아","ㅎ","ㅎ ","g"), intents=INTENTS)
+my_bot = MyBot(command_prefix=commands.when_mentioned_or("."), intents=INTENTS)
 PycordComponents(my_bot)
 if __name__ == "__main__":
     my_bot.run(os.getenv('TOKEN'))
