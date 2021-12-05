@@ -15,6 +15,7 @@ class MyBot(commands.Bot):
         AutoCogs(self)
     async def on_ready(self):
         """Called upon the READY event"""
+        PycordComponents(self)
         #await self.change_presence(status=discord.Status.online, activity=discord.Activity(name="하린아 도움 | 서버: {}".format(len(self.guilds)),type=discord.ActivityType.playing))
         await self.change_presence(status=discord.Status.online,
                                    activity=discord.Activity(name="하린봇 V2 테스트",
@@ -27,8 +28,14 @@ class MyBot(commands.Bot):
 
 
 
+
 INTENTS = discord.Intents.all()
 my_bot = MyBot(command_prefix=commands.when_mentioned_or("."), intents=INTENTS)
-PycordComponents(my_bot)
+
+# @my_bot.check
+# async def global_check(ctx):
+#     print(ctx.author)
+#     return True
+
 if __name__ == "__main__":
     my_bot.run(os.getenv('TOKEN'))

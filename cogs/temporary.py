@@ -347,9 +347,13 @@ class temporary(Cog):
                 interaction.user.voice.channel
         except:
             return await interaction.respond(content="음성채널에 접속하셔야만 조작이 가능해요.")
-        voice_channel: discord.VoiceChannel = interaction.user.voice.channel
+        guild = self.bot.get_guild(interaction.guild_id)
         try:
-            temp = self.temp[str(interaction.guild.id)][str(voice_channel.id)]
+            voice_channel: discord.VoiceChannel = guild.get_member(interaction.user.id).voice.channel
+        except:
+            pass
+        try:
+            temp = self.temp[str(guild.id)][str(voice_channel.id)]
             if temp['text'] == interaction.channel_id:
                 if interaction.custom_id.startswith("temporary_"):
                     if not interaction.user.id in temp['co_owners']:

@@ -12,6 +12,15 @@ def dump_temporary_caching(data):
         json.dump(data, outfile, indent=4)
         return True
 
+
+def economy_caching():
+    with open("tools/economy_json/economy.json", "r") as json_file:
+        return json.load(json_file)
+
+def dump_economy_caching(data):
+    with open("tools/economy_json/economy.json", 'w') as outfile:
+        return json.dump(data, outfile, indent=4)
+
 class DataBaseTool:
     def __init__(self,db):
         self.db = db
