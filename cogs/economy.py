@@ -10,7 +10,7 @@ from py_cord_components import (
     SelectOption,
     Interaction
 )
-from tools.database_tool import economy_caching,dump_economy_caching
+from tools.database_tool import economy_caching,dump_economy_caching,challenge_caching,dump_challenge_caching
 from tools.execption import PermError
 from bot import MyBot
 
@@ -54,8 +54,44 @@ class economy(Cog):
     def __init__(self, bot:MyBot):
         self.bot = bot
         self.data = economy_caching()
+        self.challenge = challenge_caching()
+        self.challenge_dict = {
+            "buy_items": "내 인생 첫 아이템 구매",
+            "deal_items": "점상과의 거래",
+            "first_fishing": "낚시인생의 시작!",
+            "first_stock": "일개미인생 시작!",
+            "bankruptcy": "파산됐지만 처음부터 하나씩 다시시작!",
+            "first_gambling": "내 인생 첫 도박",
+            "item_enhancement":"발전하는 아이템!",
+            "loans":"마이너스 인생의 시작!"
+        }
+        self.challenge_max_dict = {
+            "buy_items": 1,
+            "deal_items": 5,
+            "first_fishing": 1,
+            "first_stock": 1,
+            "bankruptcy": 1,
+            "first_gambling": 1,
+            "item_enhancement":3,
+            "loans":1
+        }
+        self.item_price = {
+            "default_fishing_rod":5000,
+            "bucket":2000,
+            "silverfish":2000
+        }
+        self.item_name = {
+            "default_fishing_rod": "평범한 낚싯대",
+            "bucket": "양동이",
+            "silverfish":"미끼용벌레"
+        }
         self.register_cooldown = []
         super().__init__()
+
+    async def cog_before_invoke(self, ctx: commands.Context):
+        self.data = economy_caching()
+        self.challenge = challenge_caching()
+        print(self.data, self.challenge)
 
     @staticmethod
     def get_kor_amount_string(num_amount, ndigits_round=0, str_suffix='원'):
@@ -102,6 +138,26 @@ class economy(Cog):
         return self.get_kor_amount_string(num_amount, -(len(str(num_amount)) - ndigits_keep))
 
 
+    async def process_challenge(self,ctx,challenge):
+        data = self.challenge[str(ctx.author.id)][challenge]
+        resp = data + 1
+        if resp > self.challenge_max_dict[challenge]:
+            return
+        self.challenge[str(ctx.author.id)][challenge] = resp
+        if self.challenge_max_dict[challenge] == resp:
+            self.data[str(ctx.author.id)]['clear_challenge'].append(challenge)
+            self.data[str(ctx.author.id)]['money'] += 500
+            em = discord.Embed(
+                title="인생경제시스템 도전과제 달성!",
+                description=f"🎉 축하드립니다! {ctx.author.display_name}님!\n`{self.challenge_dict[challenge]}` 도전과제를 완수하셨어요! 보상으로 500원 적립해드렸습니다!",
+                color=ctx.author.color
+            )
+            await ctx.reply(embed=em)
+        dump_challenge_caching(self.challenge)
+        dump_economy_caching(self.data)
+
+
+
     @command(name="가입")
     @register_check()
     async def register(self,ctx):
@@ -128,7 +184,18 @@ class economy(Cog):
                     "stocks":[],
                     "clear_challenge":[]
                 }
+                self.challenge[ctx.author.id] = {
+                    "buy_items":0,
+                    "deal_items":0,
+                    "first_fishing":0,
+                    "first_stock":0,
+                    "bankruptcy":0,
+                    "first_gambling":0,
+                    "item_enhancement":0,
+                    "loans":0
+                }
                 dump_economy_caching(self.data)
+                dump_challenge_caching(self.challenge)
                 em.title = "인생경제시스템에 가입되신것을 축하드립니다!"
                 em.description=f"{self.bot.get_emoji(893674152672776222)} 성공적으로 가입되었어요! 초기 지원금으로 50,000원을 지급해드렸습니다.\n\n이제부터 마음껏 낚시를 하고 시세를 고려하여 판매도하고 주식과 점상과 거래를 하며 부를 키워보세요!\n건투를 빕니다!"
             else:
@@ -161,7 +228,9 @@ class economy(Cog):
             await msg.disable_components()
             if value == "yes":
                 del self.data[str(ctx.author.id)]
+                del self.challenge[str(ctx.author.id)]
                 dump_economy_caching(self.data)
+                dump_challenge_caching(self.challenge)
                 em.title = "인생경제시스템에서 탈퇴처리되었어요."
                 em.description = f"{self.bot.get_emoji(893674152672776222)} 성공적으로 탈퇴처리되었어요!"
                 await interaction.message.edit(embed=em)
@@ -193,21 +262,90 @@ class economy(Cog):
         )
         em.add_field(
             name="아이템",
-            value="\n".join(data) if data['items'] != [] else "소지한 아이템이 하나도 없어요.",
+            value="\n".join(f"> {self.item_name[j]} X {data['items'].count(j)}" for j in list(set(data['items']))) if data['items'] != [] else "소지한 아이템이 하나도 없어요."
         )
         em.add_field(
             name="배지",
-            value="\n".join(data) if data['badge'] != [] else "소지한 배지가 하나도 없어요."
+            value="\n".join(data['badge']) if data['badge'] != [] else "소지한 배지가 하나도 없어요."
         )
         em.add_field(
             name="주식",
-            value="\n".join(data) if data['stocks'] != [] else "소지한 주식이 하나도 없어요."
+            value="\n".join(data['stocks']) if data['stocks'] != [] else "소지한 주식이 하나도 없어요."
         )
         em.add_field(
             name="완료한 도전과제",
-            value="\n".join(data) if data['clear_challenge'] != [] else "완료한 도전과제가 하나도 없어요."
+            value="\n\n".join(f"> {self.challenge_dict[i]}" for i in data['clear_challenge'])
+            if data['clear_challenge'] != []
+            else "완료한 도전과제가 하나도 없어요.",
+        )
+        li = [
+            f"> {self.challenge_dict[key]} | {value}/{self.challenge_max_dict[key]}"
+            for key, value in self.challenge[str(ctx.author.id)].items()
+            if value != 0 and self.challenge_max_dict[key] > value
+        ]
+
+        if li == []:
+            li.append("진행중인 도전과제가 없어요.")
+        em.add_field(
+            name="진행중인 도전과제",
+            value="\n\n".join(li)
         )
         await ctx.reply(embed=em)
+
+    @command(name="상점")
+    @require_register()
+    async def shop(self, ctx):
+        em = discord.Embed(
+            title="인생경제시스템 - 상점",
+            description="상점에 오신것을 환영해요.\n아래에서 구매하고싶은 아이템을 골라 구매해보세요.",
+            color=ctx.author.color
+        )
+        em.set_thumbnail(url="https://media.discordapp.net/attachments/889514827905630290/917210271494312066/shop-with-sign-we-are-open_23-2148547718.png")
+        msg = await ctx.reply(embed=em, components=[
+            Select(
+                options=[
+                    SelectOption(label="평범한 낚싯대 - 5천원",
+                                 value="default_fishing_rod",
+                                 emoji=self.bot.get_emoji(916994059954978877),
+                                 description="평범한 낚싯대로 무난하게 낚시를 할수있다."),
+                    SelectOption(label="양동이 - 2천원",
+                                 value="bucket",
+                                 emoji=self.bot.get_emoji(917212624997974056),
+                                 description="무언가를 담을수있는 양동이, 낚시할때 유용하게 사용할 수 있을것같다."),
+                    SelectOption(label="미끼용벌레 5개 - 2천원",
+                                 value="silverfish",
+                                 emoji=self.bot.get_emoji(917225134220259378),
+                                 description="미끼용벌레, 이 미끼를 쓰면 물고기가 몰려온다는데?")
+                ]
+            )
+        ])
+        try:
+            interaction: Interaction = await self.bot.wait_for("select_option", check=lambda
+                i: i.user.id == ctx.author.id and i.message.id == msg.id, timeout=60)
+            value = interaction.values[0]
+            await interaction.respond(type=6)
+            await msg.disable_components()
+            self.data[str(ctx.author.id)]['money'] -= self.item_price[value]
+            if value == "silverfish":
+                for i in range(5):
+                    self.data[str(ctx.author.id)]['items'].append(value)
+            else:
+                self.data[str(ctx.author.id)]['items'].append(value)
+            dump_economy_caching(self.data)
+            await self.process_challenge(ctx,'buy_items')
+            if self.data[str(ctx.author.id)]['money'] <= -1:
+                em.description = f"{self.bot.get_emoji(893674152672776222)} 성공적으로 `{self.item_name[value]}`를 구매하였어요.\n자금이 모자라 자동으로 대출금으로 결제되었어요."
+            else:
+                em.description = f"{self.bot.get_emoji(893674152672776222)} 성공적으로 `{self.item_name[value]}`를 구매하였어요."
+            await msg.edit(embed=em)
+        except asyncio.TimeoutError:
+            await msg.disable_components()
+            em.description = '저기..손님.. 아무것도 안 사실거면 나가주세요..'
+            await msg.edit(embed=em)
+
+
+
+
 
 def setup(bot):
     bot.add_cog(economy(bot))

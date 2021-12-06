@@ -1,1 +1,14 @@
-{}
+{
+    "281566165699002379": {
+        "money": 43500,
+        "items": [
+            "default_fishing_rod",
+            "bucket"
+        ],
+        "badge": [],
+        "stocks": [],
+        "clear_challenge": [
+            "buy_items"
+        ]
+    }
+}

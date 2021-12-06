@@ -21,6 +21,16 @@ def dump_economy_caching(data):
     with open("tools/economy_json/economy.json", 'w') as outfile:
         return json.dump(data, outfile, indent=4)
 
+
+def challenge_caching():
+    with open("tools/economy_json/challenge.json", "r") as json_file:
+        return json.load(json_file)
+
+def dump_challenge_caching(data):
+    with open("tools/economy_json/challenge.json", 'w') as outfile:
+        return json.dump(data, outfile, indent=4)
+
+
 class DataBaseTool:
     def __init__(self,db):
         self.db = db
