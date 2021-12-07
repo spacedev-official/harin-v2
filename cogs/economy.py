@@ -13,7 +13,7 @@ from py_cord_components import (
 from tools.database_tool import economy_caching,dump_economy_caching,challenge_caching,dump_challenge_caching
 from tools.execption import PermError
 from bot import MyBot
-
+from random import choices,randint
 
 #economy_cach = economy_caching()
 
@@ -50,6 +50,85 @@ def require_register():
 
     return commands.check(predicate)
 
+
+def fishing_check():
+    async def predicate(ctx):
+        user_id = str(ctx.author.id)
+        data = economy_caching()[user_id]['items']
+        require_items = []
+        if "default_fishing_rod" not in data:
+            require_items.append("◎ 평범한 낚싯대")
+        if "default_fishing_rod" not in data and "enchant_fishing_rod" not in data:
+            require_items.append("◎ 평범한 낚싯대 혹은 강화된 낚싯대")
+        if "bucket" not in data:
+            require_items.append("◎ 양동이")
+        if data.count('silverfish') == 0:
+            require_items.append("◎ 미끼용 벌레")
+        if require_items != []:
+            require_items_str = '\n'.join(require_items)
+            em = discord.Embed(title="아이템 부족.", description=f"<a:cross:893675768880726017> 낚시에 필요한 아이템이 부족해요.\n< 부족한 아이템 >\n{require_items_str}",
+                               color=ctx.author.color)
+            await ctx.reply(embed=em)
+            raise PermError.NotEnoughItem
+        else:
+            return True
+
+    return commands.check(predicate)
+
+class FishingGame:
+    def __init__(self,bot:MyBot,ctx:commands.Context,data:dict):
+        self.bot = bot
+        self.ctx = ctx
+        self.data = data
+        self.fish = ['cod', 'salmon', 'tropical', 'pufferfish', 'squid', 'glow_squid']
+        self.fish_name = {
+            "cod":f"{self.bot.get_emoji(916994060215001098)}대구",
+            "tropical":f"{self.bot.get_emoji(916994060026257472)}열대어",
+            "pufferfish":f"{self.bot.get_emoji(916994060315689020)}복어",
+            "squid":f"{self.bot.get_emoji(917756503174307850)}오징어",
+            "glow_squid":f"{self.bot.get_emoji(916994060223402004)}발광오징어",
+            "salmon":f"{self.bot.get_emoji(916994060227608596)}연어"
+        }
+
+    async def Start(self):
+        self.data[str(self.ctx.author.id)]['items'].remove("silverfish")
+        em = discord.Embed(
+            title="낚시중",
+            description="낚싯대를 바다로 던졌다",
+            color=self.ctx.author.color
+        )
+        msg = await self.ctx.reply(embed=em)
+        await asyncio.sleep(randint(3,6))
+        em.description = "앗! 낚싯대가 요동을 친다!\n아래 낚아채기버튼을 누르자!"
+        await msg.delete()
+        fishing_msg = await self.ctx.reply(embed=em, components=[
+            Button(label="낚아채기", style=ButtonStyle.green, custom_id=(choices(["fail", "success"]))[0])])
+        try:
+            interaction:Interaction = await self.bot.wait_for("button_click",check=lambda i:i.message.id == fishing_msg.id and i.user.id == self.ctx.author.id,timeout=10)
+            value = interaction.custom_id
+            await interaction.respond(type=6)
+            await fishing_msg.disable_components()
+            if value == "fail":
+                desc = choices(["앗..물고기가 미끼만 먹고 도망쳐버렸다.","물고기의 엄청난 힘에 못이겨 낚싯대를 놓쳐버렸다.","쓰레기가 잡혀버렸다."])[0]
+                if desc == "물고기의 엄청난 힘에 못이겨 낚싯대를 놓쳐버렸다.":
+                    self.data[str(self.ctx.author.id)]['items'].remove("default_fishing_rod")
+                em.description = desc
+            else:
+                population = [0, 1, 2, 3, 4, 5]
+                weights = [0.11, 0.96, 0.94,0.90, 0.85, 0.75]
+                resp = choices(population,weights)
+                self.data[str(self.ctx.author.id)]['items'].append(self.fish[resp[0]])
+                em.description = f"{self.fish_name[self.fish[resp[0]]]}를 낚았다!"
+            await fishing_msg.edit(embed=em)
+            dump_economy_caching(self.data)
+        except asyncio.TimeoutError:
+            await fishing_msg.disable_components()
+            em.description = "낚싯대를 낚아채지않아 물고기가 도망가버렸다."
+            await fishing_msg.edit(embed=em)
+            dump_economy_caching(self.data)
+
+
+
 class economy(Cog):
     def __init__(self, bot:MyBot):
         self.bot = bot
@@ -81,9 +160,15 @@ class economy(Cog):
             "silverfish":2000
         }
         self.item_name = {
-            "default_fishing_rod": "평범한 낚싯대",
-            "bucket": "양동이",
-            "silverfish":"미끼용벌레"
+            "default_fishing_rod": f"{self.bot.get_emoji(916994059954978877)}평범한 낚싯대",
+            "bucket": f"{self.bot.get_emoji(917212624997974056)}양동이",
+            "silverfish":f"{self.bot.get_emoji(917225134220259378)}미끼용 벌레",
+            "cod": f"{self.bot.get_emoji(916994060215001098)}대구",
+            "tropical": f"{self.bot.get_emoji(916994060026257472)}열대어",
+            "pufferfish": f"{self.bot.get_emoji(916994060315689020)}복어",
+            "squid": f"{self.bot.get_emoji(917756503174307850)}오징어",
+            "glow_squid": f"{self.bot.get_emoji(916994060223402004)}발광오징어",
+            "salmon": f"{self.bot.get_emoji(916994060227608596)}연어"
         }
         self.register_cooldown = []
         super().__init__()
@@ -91,7 +176,6 @@ class economy(Cog):
     async def cog_before_invoke(self, ctx: commands.Context):
         self.data = economy_caching()
         self.challenge = challenge_caching()
-        print(self.data, self.challenge)
 
     @staticmethod
     def get_kor_amount_string(num_amount, ndigits_round=0, str_suffix='원'):
@@ -281,13 +365,13 @@ class economy(Cog):
         li = [
             f"> {self.challenge_dict[key]} | {value}/{self.challenge_max_dict[key]}"
             for key, value in self.challenge[str(ctx.author.id)].items()
-            if value != 0 and self.challenge_max_dict[key] > value
+            if value == 0
         ]
 
         if li == []:
             li.append("진행중인 도전과제가 없어요.")
         em.add_field(
-            name="진행중인 도전과제",
+            name="남은 도전과제",
             value="\n\n".join(li)
         )
         await ctx.reply(embed=em)
@@ -312,7 +396,7 @@ class economy(Cog):
                                  value="bucket",
                                  emoji=self.bot.get_emoji(917212624997974056),
                                  description="무언가를 담을수있는 양동이, 낚시할때 유용하게 사용할 수 있을것같다."),
-                    SelectOption(label="미끼용벌레 5개 - 2천원",
+                    SelectOption(label="미끼용 벌레 5개 - 2천원",
                                  value="silverfish",
                                  emoji=self.bot.get_emoji(917225134220259378),
                                  description="미끼용벌레, 이 미끼를 쓰면 물고기가 몰려온다는데?")
@@ -334,15 +418,21 @@ class economy(Cog):
             dump_economy_caching(self.data)
             await self.process_challenge(ctx,'buy_items')
             if self.data[str(ctx.author.id)]['money'] <= -1:
-                em.description = f"{self.bot.get_emoji(893674152672776222)} 성공적으로 `{self.item_name[value]}`를 구매하였어요.\n자금이 모자라 자동으로 대출금으로 결제되었어요."
+                em.description = f"{self.bot.get_emoji(893674152672776222)} 성공적으로 {self.item_name[value]}를 구매하였어요.\n자금이 모자라 자동으로 대출금으로 결제되었어요."
             else:
-                em.description = f"{self.bot.get_emoji(893674152672776222)} 성공적으로 `{self.item_name[value]}`를 구매하였어요."
+                em.description = f"{self.bot.get_emoji(893674152672776222)} 성공적으로 {self.item_name[value]}를 구매하였어요."
             await msg.edit(embed=em)
         except asyncio.TimeoutError:
             await msg.disable_components()
             em.description = '저기..손님.. 아무것도 안 사실거면 나가주세요..'
             await msg.edit(embed=em)
 
+    @command(name="낚시")
+    @require_register()
+    @fishing_check()
+    async def fishing(self,ctx):
+        await self.process_challenge(ctx, 'first_fishing')
+        await FishingGame(self.bot,ctx,self.data).Start()
 
 
 

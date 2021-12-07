@@ -2,7 +2,17 @@
     "281566165699002379": {
         "buy_items": 1,
         "deal_items": 0,
-        "first_fishing": 0,
+        "first_fishing": 1,
+        "first_stock": 0,
+        "bankruptcy": 0,
+        "first_gambling": 0,
+        "item_enhancement": 0,
+        "loans": 0
+    },
+    "866297659362246706": {
+        "buy_items": 1,
+        "deal_items": 0,
+        "first_fishing": 1,
         "first_stock": 0,
         "bankruptcy": 0,
         "first_gambling": 0,

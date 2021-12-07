@@ -1,14 +1,39 @@
 {
     "281566165699002379": {
-        "money": 43500,
+        "money": 33000,
         "items": [
+            "bucket",
+            "salmon",
+            "pufferfish",
+            "tropical",
+            "salmon",
+            "tropical",
+            "pufferfish",
             "default_fishing_rod",
-            "bucket"
+            "tropical"
         ],
         "badge": [],
         "stocks": [],
         "clear_challenge": [
-            "buy_items"
+            "buy_items",
+            "first_fishing"
+        ]
+    },
+    "866297659362246706": {
+        "money": 42000,
+        "items": [
+            "silverfish",
+            "silverfish",
+            "silverfish",
+            "bucket",
+            "default_fishing_rod",
+            "salmon"
+        ],
+        "badge": [],
+        "stocks": [],
+        "clear_challenge": [
+            "buy_items",
+            "first_fishing"
         ]
     }
 }

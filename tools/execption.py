@@ -15,3 +15,7 @@ class PermError:
     class AlreadyRegisterUser(commands.CheckFailure):
         def __str__(self):
             return "Already Register User"
+
+    class NotEnoughItem(commands.CheckFailure):
+        def __str__(self):
+            return "Has Not Enough Item"
