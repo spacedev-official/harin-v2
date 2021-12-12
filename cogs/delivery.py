@@ -74,29 +74,18 @@ class ExampleCog(Cog):
                 {
                     "code": data['code'],
                     "company": data['company'],
-                    'stat': data['stat']
+                    'stat': data['stat'],
+                    'description': data['description']
                 }
             )
-            dump_delivery_caching(user_data)
-        except KeyError:
-            new_data = {}
-            new_data[str(ctx.author.id)] = [
-                {
+            dump_delivery_caching(cach)
+        except (KeyError, TypeError):
+            new_data = {str(ctx.author.id): [{
                     "code": data['code'],
                     "company": data['company'],
-                    'stat': data['stat']
-                }
-            ]
-            dump_delivery_caching(new_data)
-        except TypeError:
-            new_data = {}
-            new_data[str(ctx.author.id)] = [
-                {
-                    "code": data['code'],
-                    "company": data['company'],
-                    'stat': data['stat']
-                }
-            ]
+                    'stat': data['stat'],
+                    'description':data['description']
+                }]}
             dump_delivery_caching(new_data)
         await interaction.respond(content="성공적으로 등록하였어요! 이제부터 배송상태가 바뀔때마다 알려드릴게요!")
 
@@ -139,10 +128,12 @@ class ExampleCog(Cog):
                                                                                and i.message.id == compamy_msg.id,
                                                                timeout=60)
             value = interaction.values[0]
+            resp = await Tracking(value, code).get_info()
+            if resp['data']['state']['id'] == "delivered":
+                return await interaction.respond(content="배송완료건은 추가할수없어요.")
             await interaction.respond(type=6)
             await compamy_msg.disable_components()
-            resp = await Tracking(value, code).get_info()
-            data = {'code': code, 'company': value, "stat": resp['data']['state']}
+            data = {'code': code, 'company': value, "stat": resp['data']['state'],'description':resp['data']['progresses'][-1]['description']}
             return await self.add_delivery_data(ctx, data, interaction)
         except asyncio.TimeoutError:
             await compamy_msg.disable_components()
@@ -152,15 +143,12 @@ class ExampleCog(Cog):
         while not self.bot.is_closed():
             data = delivery_caching()
             for key in data.keys():
-                print(key)
                 for i in data[key]:
-                    print(i)
                     resp = await Tracking(i['company'], i['code']).get_info()
                     resp_data = resp['data']
                     if resp['status'] != 200:
                         break
-                    print(resp_data['state']['id'], i['stat']['id'], resp_data['state']['id'] != i['stat']['id'])
-                    if resp_data['state']['id'] != i['stat']['id']:
+                    if resp_data['state']['id'] != i['stat']['id'] or resp_data['progresses'][-1]['description'] != i['description']:
                         em = discord.Embed(
                             title="택배알림 DM 도착!",
                             description=f"송장번호: {i['code']}\n배송사: {resp_data['carrier']['name']}\n보내시는분: {resp_data['from']['name']}\n받으시는분: {resp_data['to']['name']}"
@@ -188,6 +176,10 @@ class ExampleCog(Cog):
                             await (await self.bot.fetch_user(int(key))).send(embed=em)
                         except discord.Forbidden:
                             pass
+                        if i['stat']['id'] == "delivered":
+                            data[str(key)].remove(i)
+                            dump_delivery_caching(data)
+                            break
             await asyncio.sleep(2)
 
     def cog_unload(self):

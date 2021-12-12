@@ -484,6 +484,8 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
         conn = await db.execute("SELECT * FROM music WHERE guild = ?", (interaction.guild_id,))
         resp = await conn.fetchone()
         if interaction.custom_id.startswith("music_") and interaction.message.id == resp[2]:
+            if not interaction.user.voice or not interaction.user.voice.channel:
+                return await interaction.send("음성채널에 접속해있지않아요!",ephemeral=False,delete_after=5)
             if interaction.custom_id == "music_cancel":
                 if await self.MusicManager.leave(ctx):
                     await self.set_default(ctx)
