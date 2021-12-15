@@ -46,7 +46,7 @@ class ExampleCog(Cog):
                 value=f"{datas['from']['name']}(<t:{self.convert_timestamp(datas['from']['time'])}:R>)"
             )
             times = datas['to']['time']
-            complate = f"<t:{self.convert_timestamp(times)}:R>" if times != None else "정보가 없거나 아직 배송이 완료되지않은 상태입니다."
+            complate = f"<t:{self.convert_timestamp(times)}:R>" if times is not None else "정보가 없거나 아직 배송이 완료되지않은 상태입니다."
             em.add_field(
                 name="받으시는분(택배배송완료시각)",
                 value=f"{datas['to']['name']}({complate})"

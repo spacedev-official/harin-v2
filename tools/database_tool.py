@@ -53,16 +53,12 @@ class DataBaseTool:
     async def check_db_music(self, guild: discord.Guild):
         conn = await self.db.execute("SELECT * FROM music WHERE guild = ?", (guild.id,))
         cur = await conn.fetchone()
-        if cur == None:
-            return True
-        return False
+        return cur is None
 
     async def check_db_temporary(self, guild: discord.Guild):
         conn = await self.db.execute("SELECT * FROM temporary WHERE guild = ?", (guild.id,))
         cur = await conn.fetchone()
-        if cur == None:
-            return True
-        return False
+        return cur is None
 
     async def add_music_data(self, guild: discord.Guild, channel: discord.TextChannel, message: discord.Message):
         ch_ = await self.check_db_music(guild)

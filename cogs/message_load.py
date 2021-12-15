@@ -13,7 +13,7 @@ class message_load(Cog):
         db = await aiosqlite.connect("db/db.db")
         conn = await db.execute("SELECT * FROM message_load WHERE message_url = ?",(str(message.content),))
         resp = await conn.fetchone()
-        if resp != None:
+        if resp is not None:
             if resp[3] == "none" and resp[5] == "none":
                 return
             user = await self.bot.fetch_user(resp[2])
@@ -58,10 +58,7 @@ class message_load(Cog):
         else:
             if not bool(message.content) and not message.attachments:
                 return
-            if not bool(message.content):
-                msg_content = "none"
-            else:
-                msg_content = message.content
+            msg_content = "none" if not bool(message.content) else message.content
             if message.attachments:
                 await db.execute("INSERT INTO message_load(guild, message_url, user, message_content, channel, attachment_url) VALUES (?, ?, ?, ?, ?, ?)",
                                  (message.guild.id, message.jump_url, message.author.id, msg_content, message.channel.id, message.attachments[0].url))
@@ -77,7 +74,7 @@ class message_load(Cog):
         db = await aiosqlite.connect("db/db.db")
         conn = await db.execute("SELECT * FROM message_load WHERE message_url = ?",(str(message.jump_url),))
         resp = await conn.fetchone()
-        if resp != None:
+        if resp is not None:
             await db.execute("DELETE FROM message_load WHERE message_url = ?",(str(message.jump_url),))
             await db.commit()
         else:
@@ -90,7 +87,7 @@ class message_load(Cog):
         db = await aiosqlite.connect("db/db.db")
         conn = await db.execute("SELECT * FROM message_load WHERE channel = ?", (channel.id,))
         resp = await conn.fetchone()
-        if resp != None:
+        if resp is not None:
             await db.execute("DELETE FROM message_load WHERE channel = ?", (channel.id,))
             await db.commit()
         else:

@@ -179,7 +179,7 @@ class temporary(Cog):
         # voice_channel = interaction.user.voice.channel
         cache = temporary_caching()
         temp = cache[str(member.guild.id)][str(voice_channel.id)]
-        if not member_id in temp['members']:
+        if member_id not in temp['members']:
             return await channel.send(content=f"{member.display_name}님은 등록되어있지 않아요!", delete_after=5)
         if member_id == temp['owner']:
             return await channel.send(content="자기자신을 킥할수없어요.", delete_after=5)
@@ -322,30 +322,31 @@ class temporary(Cog):
             db = await aiosqlite.connect("db/db.db")
             conn = await db.execute("SELECT * FROM temporary WHERE guild = ?",(member.guild.id,))
             resp = await conn.fetchone()
-            if resp != None:
-                if after.channel.id == resp[1]:
-                    await self.create_temporary_channel(member)
+            if resp is not None and after.channel.id == resp[1]:
+                await self.create_temporary_channel(member)
         elif not member.bot:
             #self.temp = temporary_caching()
             try:
                 cache = temporary_caching()
                 temp = cache[str(member.guild.id)][str(before.channel.id)]
-                if before.channel.id == temp['voice']:
-                    if member.id == temp['owner']:
-                        if len(before.channel.members) + 1 == 1:
-                            await self.delete_temporary_channel(member, voice=before)
-                            return
-                        temp['co_owners'].remove(member.id)
-                        temp['members'].remove(member.id)
-                        if len(temp['members']) >= 1:
-                            rand_choice = random.choice(temp['members'])
-                            temp['owner'] = rand_choice
-                            if rand_choice not in temp['co_owners']:
-                                temp['co_owners'].append(rand_choice)
-                            await self.bot.get_channel(temp['text']).send(
-                                content=f"원 오너인 {self.bot.get_user(member.id).name}님이 나가셔서 {self.bot.get_user(rand_choice).mention}님이 원주인으로 권한이 승격되었습니다."
-                            )
-                            return
+                if (
+                    before.channel.id == temp['voice']
+                    and member.id == temp['owner']
+                ):
+                    if len(before.channel.members) == 0:
+                        await self.delete_temporary_channel(member, voice=before)
+                        return
+                    temp['co_owners'].remove(member.id)
+                    temp['members'].remove(member.id)
+                    if len(temp['members']) >= 1:
+                        rand_choice = random.choice(temp['members'])
+                        temp['owner'] = rand_choice
+                        if rand_choice not in temp['co_owners']:
+                            temp['co_owners'].append(rand_choice)
+                        await self.bot.get_channel(temp['text']).send(
+                            content=f"원 오너인 {self.bot.get_user(member.id).name}님이 나가셔서 {self.bot.get_user(rand_choice).mention}님이 원주인으로 권한이 승격되었습니다."
+                        )
+                        return
             except:
                 pass
     @Cog.listener(name="on_button_click")
@@ -358,9 +359,11 @@ class temporary(Cog):
             cache = temporary_caching()
             temp = cache[str(guild.id)][str(voice_channel.id)]
             if temp['text'] == interaction.channel_id:
-                if interaction.custom_id.startswith("temporary_"):
-                    if not interaction.user.id in temp['co_owners']:
-                        return await interaction.send(content="관리자가 아니어서 사용할수없어요.",delete_after=5)
+                if (
+                    interaction.custom_id.startswith("temporary_")
+                    and interaction.user.id not in temp['co_owners']
+                ):
+                    return await interaction.send(content="관리자가 아니어서 사용할수없어요.",delete_after=5)
                 if interaction.custom_id == "temporary_addmember":
                     await self.temporary_addmember(interaction)
                 if interaction.custom_id == "temporary_kick":

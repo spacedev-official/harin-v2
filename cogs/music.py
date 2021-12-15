@@ -471,7 +471,7 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
         db = await aiosqlite.connect("db/db.db")
         conn = await db.execute("SELECT * FROM music WHERE guild = ?",(message.guild.id,))
         resp = await conn.fetchone()
-        if not resp == None:
+        if not resp is None:
             if message.channel.id == resp[1]:
                 await message.delete()
                 await Music.play_cmd(self, ctx, message.content)
