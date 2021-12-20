@@ -16,7 +16,8 @@ from tools.database_tool import dump_delivery_caching, delivery_caching
 from dateutil.parser import parse
 
 
-class ExampleCog(Cog):
+class delivery(Cog):
+    "배송조회"
     def __init__(self, bot: MyBot):
         self.bot = bot
         self.delivery_notify_loop = self.bot.loop.create_task(self.tracker_loop())
@@ -89,7 +90,7 @@ class ExampleCog(Cog):
             dump_delivery_caching(new_data)
         await interaction.respond(content="성공적으로 등록하였어요! 이제부터 배송상태가 바뀔때마다 알려드릴게요!")
 
-    @group(name="배송조회", aliases=["택배조회", "택배", "송장조회", "송장"], invoke_without_command=True)
+    @group(name="배송조회", aliases=["택배조회", "택배", "송장조회", "송장"], invoke_without_command=True,help="'배송조회 [송장번호]'로 조회할수있고 '배송조회 등록 [송장번호]'로 실시간 알림신청을 할수있습니다.")
     async def search_delivery(self, ctx, code: int):
         em = discord.Embed(color=ctx.author.color)
         em.title = "배송사를 선택해주세요."
@@ -187,4 +188,4 @@ class ExampleCog(Cog):
 
 
 def setup(bot):
-    bot.add_cog(ExampleCog(bot))
+    bot.add_cog(delivery(bot))

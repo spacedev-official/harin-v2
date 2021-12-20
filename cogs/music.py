@@ -112,7 +112,7 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
 
     # Play function
     async def play_cmd(self, ctx, query):
-        db = await aiosqlite.connect("db/db.db")
+        db = await aiosqlite.connect("db/db.sqlite")
         conn = await db.execute("SELECT * FROM music WHERE guild = ?", (ctx.guild.id,))
         resp = await conn.fetchone()
         async with ctx.typing():
@@ -154,7 +154,7 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
         return em
 
     async def set_default(self,ctx=None):
-        db = await aiosqlite.connect("db/db.db")
+        db = await aiosqlite.connect("db/db.sqlite")
         conn = await db.execute("SELECT * FROM music WHERE guild = ?", (ctx.guild.id,))
         resp = await conn.fetchone()
         msg = await (self.bot.get_channel(resp[1])).fetch_message(resp[2])
@@ -212,7 +212,7 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
     # On music play event
     @discordSuperUtils.CogManager.event(discordSuperUtils.MusicManager)
     async def on_play(self, ctx, player):  # This returns a player object
-        db = await aiosqlite.connect("db/db.db")
+        db = await aiosqlite.connect("db/db.sqlite")
         conn = await db.execute("SELECT * FROM music WHERE guild = ?", (ctx.guild.id,))
         resp = await conn.fetchone()
         # Extracting useful data from player object
@@ -425,9 +425,9 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
     """
 
 
-    @commands.command(name="msetup")
+    @commands.command(name="msetup",help="뮤직기능을 사용하기위한 설정입니다.")
     async def msetup(self,ctx):
-        db = await aiosqlite.connect("db/db.db")
+        db = await aiosqlite.connect("db/db.sqlite")
         music_check = await DataBaseTool(db).check_db_music(ctx.guild)
         if not music_check:
             return await ctx.reply("❎ 이미 설정되어있는것같아요!")
@@ -458,7 +458,7 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
                                      ]
                                  ]
                                  )
-        db = await aiosqlite.connect("db/db.db")
+        db = await aiosqlite.connect("db/db.sqlite")
         await DataBaseTool(db).add_music_data(ctx.guild,channel,msg)
         await ctx.send(
             f"<a:check:893674152672776222> 성공적으로 뮤직채널({channel.mention})을 만들었어요!\n해당 채널의 이름과 위치는 마음껏 커스터마이징이 가능하답니다!")
@@ -468,19 +468,22 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
         if message.author.bot:
             return
         ctx = await self.bot.get_context(message)
-        db = await aiosqlite.connect("db/db.db")
-        conn = await db.execute("SELECT * FROM music WHERE guild = ?",(message.guild.id,))
-        resp = await conn.fetchone()
-        if not resp == None:
-            if message.channel.id == resp[1]:
-                await message.delete()
-                await Music.play_cmd(self, ctx, message.content)
+        db = await aiosqlite.connect("db/db.sqlite")
+        try:
+            conn = await db.execute("SELECT * FROM music WHERE guild = ?",(message.guild.id,))
+            resp = await conn.fetchone()
+            if not resp == None:
+                if message.channel.id == resp[1]:
+                    await message.delete()
+                    await Music.play_cmd(self, ctx, message.content)
+        except:
+            pass
 
 
     @commands.Cog.listener(name="on_button_click")
     async def music_button_control(self,interaction:Interaction):
         ctx = await self.bot.get_context(interaction.message)
-        db = await aiosqlite.connect("db/db.db")
+        db = await aiosqlite.connect("db/db.sqlite")
         conn = await db.execute("SELECT * FROM music WHERE guild = ?", (interaction.guild_id,))
         resp = await conn.fetchone()
         if interaction.custom_id.startswith("music_") and interaction.message.id == resp[2]:

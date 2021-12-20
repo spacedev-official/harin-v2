@@ -11,7 +11,7 @@ from py_cord_components import (
     Interaction
 )
 from tools.database_tool import economy_caching,dump_economy_caching,challenge_caching,dump_challenge_caching
-from tools.execption import PermError
+from tools.execption import register_check,require_register,fishing_check,unregister_check
 from bot import MyBot
 from random import choices,randint
 
@@ -78,6 +78,7 @@ class FishingGame:
 
 
 class economy(Cog):
+    "경제"
     def __init__(self, bot:MyBot):
         self.bot = bot
         self.data = economy_caching()
@@ -190,7 +191,7 @@ class economy(Cog):
 
 
 
-    @command(name="가입")
+    @command(name="가입",help="경제시스템에 가입합니다.")
     @register_check()
     async def register(self,ctx):
         if ctx.author.id in self.register_cooldown:
@@ -240,7 +241,7 @@ class economy(Cog):
             em.description = '시간초과로 가입이 되지않았어요.'
             return await msg.edit(embed=em)
 
-    @command(name="탈퇴")
+    @command(name="탈퇴",help='경제시스템에서 탈퇴합니다.\n탈퇴후 1일동안 가입이 불가합니다.')
     @unregister_check()
     async def delete_account(self,ctx):
         em = discord.Embed(
@@ -280,7 +281,7 @@ class economy(Cog):
             em.description = '시간초과로 탈퇴처리가 진행되지않았어요.'
             return await msg.edit(embed=em)
 
-    @command(name="현황")
+    @command(name="현황",help="자신의 경제시스템의 현재상태를 알려줍니다.")
     @require_register()
     async def show_myinfo(self,ctx):
         data = self.data[str(ctx.author.id)]
@@ -324,7 +325,7 @@ class economy(Cog):
         )
         await ctx.reply(embed=em)
 
-    @command(name="상점")
+    @command(name="상점",help="아이템을 구매할수있습니다.")
     @require_register()
     async def shop(self, ctx):
         em = discord.Embed(
@@ -375,7 +376,7 @@ class economy(Cog):
             em.description = '저기..손님.. 아무것도 안 사실거면 나가주세요..'
             await msg.edit(embed=em)
 
-    @command(name="낚시")
+    @command(name="낚시",help="낚시를 합니다.")
     @require_register()
     @fishing_check()
     async def fishing(self,ctx):

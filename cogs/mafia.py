@@ -14,6 +14,7 @@ from py_cord_components import (
 
 
 class mafia(Cog):
+    "마피아게임"
     def __init__(self, bot: Bot):
         self.bot = bot
         self.data = {}
@@ -86,7 +87,7 @@ class mafia(Cog):
             return 'citizen'
         return False
 
-    @command(name="마피아", aliases=["ㅁㅍㅇ"])
+    @command(name="마피아", aliases=["ㅁㅍㅇ"],help="마피아게임을 합니다.")
     async def mafia(self, ctx):
         try:
             self.data[ctx.guild.id]
