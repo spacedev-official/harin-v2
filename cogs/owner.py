@@ -11,7 +11,7 @@ class owner(Cog):
     async def blacklist(self, ctx: Context):
         database = await aiosqlite.connect("db/db.sqlite")
         cur = await database.execute("SELECT * FROM blacklist WHERE user = ?", (ctx.author.id,))
-        if await cur.fetchone() == None:
+        if await cur.fetchone() is None:
             return await ctx.reply(f"{ctx.author}님은 블랙리스트에 등록되어있지 않아요.")
         data = await cur.fetchone()
         await ctx.reply(f"블랙사유: {data[1]}")
@@ -23,7 +23,7 @@ class owner(Cog):
         database = await aiosqlite.connect("db/db.sqlite")
         cur = await database.execute("SELECT * FROM blacklist WHERE user = ?", (user_id,))
         datas = await cur.fetchone()
-        if datas != None:
+        if datas is not None:
             return await ctx.reply(f"{user}님은 블랙리스트에 등록되어있어요.\n사유: {datas[1]}")
         await database.execute("INSERT INTO blacklist(user,reason) VALUES (?,?)", (user_id, reason))
         await database.commit()
@@ -31,7 +31,7 @@ class owner(Cog):
             await user.send(f"__관리자로부터 블랙등록됨.__\n\n"
                             f"관리자가 아래의 사유로 블랙하셨어요.\n\n"
                             f"사유: \n{reason}")
-        except:
+        except Exception:
             pass
         await ctx.reply("등록완료!")
 
@@ -42,14 +42,13 @@ class owner(Cog):
         database = await aiosqlite.connect("db/db.sqlite")
         cur = await database.execute("SELECT * FROM blacklist WHERE user = ?", (user_id,))
         datas = await cur.fetchone()
-        if datas == None:
+        if datas is None:
             return await ctx.reply(f"{user}님은 블랙리스트에 등록되어있지않아요.")
         await database.execute("DELETE FROM blacklist WHERE user = ?", (user_id,))
         await database.commit()
         try:
-            await user.send(f"__관리자로부터 블랙해제됨.__\n\n"
-                            f"관리자가 블랙해제하셨어요.")
-        except:
+            await user.send('__관리자로부터 블랙해제됨.__\n\n관리자가 블랙해제하셨어요.')
+        except Exception:
             pass
         await ctx.reply("해제완료!")
 
@@ -75,10 +74,7 @@ class owner(Cog):
             for channel in channels:
                 if guild.id in [653083797763522580, 786470326732587008]:
                     break
-                if (
-                        channel.topic is not None
-                        and str(channel.topic).find("-HOnNt") != -1
-                ):
+                if channel.topic is not None and "-HOnNt" in str(channel.topic):
                     ok.append(channel.id)
                     break
         for i in ok:

@@ -23,11 +23,9 @@ class mafia(Cog):
 
     def pick(self, guild, m, p, d):
         def seq(value):
-            count = 0
-            for u in dummy:
+            for count, u in enumerate(dummy):
                 if value == u:
                     return count
-                count += 1
 
         def select(num, role):
             for i in range(num):

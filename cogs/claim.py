@@ -17,7 +17,7 @@ class claim(Cog):
 
     @command(name="문의")
     async def claim_dm(self,ctx:Context,*,value):
-        if value == "" or value == None:
+        if value == "" or value is None:
             return await ctx.reply("내용을 입력해주세요.")
         msg:discord.Message = ctx.message
         atch:discord.Attachment = msg.attachments
@@ -49,7 +49,7 @@ class claim(Cog):
         try:
             await user.send('> 관리자 >> ' + value)
             await ctx.message.add_reaction('✅')
-        except:
+        except Exception:
             await ctx.message.add_reaction('❗')
 
 

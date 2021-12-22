@@ -90,9 +90,8 @@ class birthday(commands.Cog,discordSuperUtils.CogManager.Cog):
             for member in guild.members:
                 if member.id == birth_member.id:
                     for channel in guild.text_channels:
-                        if (
-                                channel.topic is not None
-                                and str(channel.topic).find("-HOnBtd") != -1
+                        if channel.topic is not None and "-HOnBtd" in str(
+                            channel.topic
                         ):
                             embed = discord.Embed(
                                 title="생일 축하합니다!! 🥳",

@@ -38,7 +38,7 @@ class FishingGame:
             "salmon":f"{self.bot.get_emoji(916994060227608596)}연어"
         }
 
-    async def Start(self):
+    async def start(self):
         self.data[str(self.ctx.author.id)]['items'].remove("silverfish")
         em = discord.Embed(
             title="낚시중",
@@ -149,15 +149,15 @@ class economy(Cog):
             # 만, 억, 조 단위에 천, 백, 십, 일이 모두 0000 일때는 생략
             if num_len_list_amount >= 9 and i >= 4 and i % 4 == 0 and ''.join(list_amount[i:i + 4]) == '0000':
                 continue
-            if str_num == '0':  # 0일 때
-                if i % 4 == 0:  # 4번째자리일 때(만, 억, 조...)
-                    str_result = units[i] + str_result  # 단위만 붙인다
-            elif str_num == '1':  # 1일 때
-                if i % 4 == 0:  # 4번째자리일 때(만, 억, 조...)
-                    str_result = str_num + units[i] + str_result  # 숫자와 단위를 붙인다
-                else:  # 나머지자리일 때
-                    str_result = units[i] + str_result  # 단위만 붙인다
-            else:  # 2~9일 때
+            if (
+                str_num == '0'
+                and i % 4 == 0
+                or str_num != '0'
+                and str_num == '1'
+                and i % 4 != 0
+            ):  # 4번째자리일 때(만, 억, 조...)
+                str_result = units[i] + str_result  # 단위만 붙인다
+            elif str_num != '0':  # 4번째자리일 때(만, 억, 조...)
                 str_result = str_num + units[i] + str_result  # 숫자와 단위를 붙인다
         str_result = str_result.strip()  # 문자열 앞뒤 공백을 제거한다
         if len(str_result) == 0:
@@ -381,7 +381,7 @@ class economy(Cog):
     @fishing_check()
     async def fishing(self,ctx):
         await self.process_challenge(ctx, 'first_fishing')
-        await FishingGame(self.bot,ctx,self.data).Start()
+        await FishingGame(self.bot,ctx,self.data).start()
 
 
 

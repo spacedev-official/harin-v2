@@ -33,7 +33,7 @@ class twloops:
         self.bot = bot
         self.access_token = mTwitchOauth2()
         self.live = {}
-        self.TwitchManager = discordSuperUtils.TwitchManager(bot, os.getenv('TWITCH_CLIENT_ID'), self.access_token)
+        self.twitchmanager = discordSuperUtils.TwitchManager(bot, os.getenv('TWITCH_CLIENT_ID'), self.access_token)
 
     def twloop_start(self):
         self.twitch_loop.start()
@@ -59,11 +59,9 @@ class twloops:
                             if j['display_name'] == answer2['data'][0]['display_name']:
                                 if j['is_live']:
                                     try:
-                                        if self.live[j['broadcaster_login']]:
-                                            pass
-                                        else:
+                                        if not self.live[j['broadcaster_login']]:
                                             self.live[j['broadcaster_login']] = True
-                                            status = await self.TwitchManager.get_channel_status(
+                                            status = await self.twitchmanager.get_channel_status(
                                                 [j['broadcaster_login']])
                                             stream_info = next(iter(status), None)
                                             embed = discord.Embed(
@@ -79,7 +77,7 @@ class twloops:
                                                                                   label=f"{j['display_name']}님의 방송 보러가기",
                                                                                   emoji=self.bot.get_emoji(
                                                                                       911928055197478912))])
-                                    except:
+                                    except Exception:
                                         self.live[j['broadcaster_login']] = False
                                 else:
                                     try:
@@ -99,7 +97,7 @@ class twloops:
                                                                                                url=f"https://twitch.tv/{j['broadcaster_login']}",
                                                                                                label=f"{j['display_name']}님의 채널 방문하기")])
                                             self.live[j['broadcaster_login']] = False
-                                    except:
+                                    except Exception:
                                         self.live[j['broadcaster_login']] = False
-                    except:
+                    except Exception:
                         pass

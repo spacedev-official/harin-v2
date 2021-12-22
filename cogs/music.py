@@ -33,9 +33,11 @@ def ensure_voice_state():
         if not ctx.author.voice or not ctx.author.voice.channel:
             raise commands.NoVoiceConncted()
 
-        if ctx.voice_client:
-            if ctx.voice_client.channel != ctx.author.voice.channel:
-                raise commands.BotAlreadyConncted()
+        if (
+            ctx.voice_client
+            and ctx.voice_client.channel != ctx.author.voice.channel
+        ):
+            raise commands.BotAlreadyConncted()
 
         return True
 
@@ -128,7 +130,7 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
                 queue_resp = await self.queue(ctx)
                 try:
                     queue_res = "\n".join(queue_resp)
-                except:
+                except Exception:
                     queue_res = "대기열 없음"
                 msg = await ctx.channel.fetch_message(resp[2])
                 await msg.edit(
@@ -362,8 +364,8 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
             user = self.bot.get_guild(interaction.guild_id).get_member(interaction.user.id)
             await user.voice.channel.connect()
             await interaction.send("정상적으로 채널에 접속했어요.",ephemeral=False,delete_after=5)
-        except:
-            print(str(traceback.format_exc()))
+        except Exception:
+            print(traceback.format_exc())
             await interaction.send("이미 접속된 상태에요.",ephemeral=False,delete_after=5)
 
     # async def playlists(self, interaction:Interaction):
@@ -472,11 +474,10 @@ class Music(commands.Cog, discordSuperUtils.CogManager.Cog, name="Music"):
         try:
             conn = await db.execute("SELECT * FROM music WHERE guild = ?",(message.guild.id,))
             resp = await conn.fetchone()
-            if not resp == None:
-                if message.channel.id == resp[1]:
-                    await message.delete()
-                    await Music.play_cmd(self, ctx, message.content)
-        except:
+            if resp is not None and message.channel.id == resp[1]:
+                await message.delete()
+                await Music.play_cmd(self, ctx, message.content)
+        except Exception:
             pass
 
 

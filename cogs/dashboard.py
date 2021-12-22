@@ -12,7 +12,7 @@ class dashboard(Cog):
         database = await aiosqlite.connect("db/db.sqlite")
         cur = await database.execute("SELECT * FROM dashboard WHERE guild = ?", (interaction.guild_id,))
         data = await cur.fetchone()
-        if data != None:
+        if data is not None:
             await interaction.respond(type=6)
             value = interaction.custom_id
             dash = DashBoard(bot=self.bot,interaction=interaction)

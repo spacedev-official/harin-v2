@@ -132,7 +132,7 @@ class temporary(Cog):
             await text_channel.delete()
             del cache[str(member.guild.id)][str(voice.channel.id)]
             dump_temporary_caching(cache)
-        except:
+        except Exception:
             print(traceback.format_exc())
 
 
@@ -186,13 +186,13 @@ class temporary(Cog):
         temp['members'].remove(member_id)
         try:
             temp['co_owners'].remove(member_id)
-        except:
+        except Exception:
             pass
         await text_channel.set_permissions(member, read_messages=False, send_messages=False)
         await voice_channel.set_permissions(member, connect=False)
         try:
             await member.move_to(None)
-        except:
+        except Exception:
             pass
         await bot_msg.delete()
         await msg.delete()
@@ -237,7 +237,7 @@ class temporary(Cog):
         name = str(msg.content)
         try:
             await voice_channel.edit(name=name)
-        except:
+        except Exception:
             await bot_msg.delete()
             await msg.delete()
             await channel.send(content="지원하지않는 글자가 포함되어있는것같아요. 다시 시도해주세요.", delete_after=5)
@@ -323,9 +323,8 @@ class temporary(Cog):
             conn = await db.execute("SELECT * FROM temporary WHERE guild = ?",(member.guild.id,))
             resp = await conn.fetchone()
 
-            if resp != None:
-                if after.channel.id == resp[1]:
-                    await self.create_temporary_channel(member)
+            if resp is not None and after.channel.id == resp[1]:
+                await self.create_temporary_channel(member)
         elif not member.bot:
             #self.temp = temporary_caching()
             try:
@@ -349,7 +348,7 @@ class temporary(Cog):
                             content=f"원 오너인 {self.bot.get_user(member.id).name}님이 나가셔서 {self.bot.get_user(rand_choice).mention}님이 원주인으로 권한이 승격되었습니다."
                         )
                         return
-            except:
+            except Exception:
                 pass
     @Cog.listener(name="on_button_click")
     async def temporary_button_control(self,interaction:Interaction):

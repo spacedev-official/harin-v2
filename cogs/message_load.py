@@ -59,10 +59,7 @@ class message_load(Cog):
         else:
             if not bool(message.content) and not message.attachments:
                 return
-            if not bool(message.content):
-                msg_content = "none"
-            else:
-                msg_content = message.content
+            msg_content = "none" if not bool(message.content) else message.content
             try:
                 if message.attachments:
                     await db.execute("INSERT INTO message_load(guild, message_url, user, message_content, channel, attachment_url) VALUES (?, ?, ?, ?, ?, ?)",
@@ -74,14 +71,15 @@ class message_load(Cog):
                         (message.guild.id, str(message.jump_url).replace('https://canary.discord.com','https://discord.com'), message.author.id, msg_content, message.channel.id,
                          "none"))
                     await db.commit()
-            except:
+            except Exception:
                 pass
+
     @Cog.listener(name="on_message_delete")
     async def detect_message_delete(self,message:discord.Message):
         db = await aiosqlite.connect("db/db.sqlite")
         conn = await db.execute("SELECT * FROM message_load WHERE message_url = ?",(str(message.jump_url).replace('https://canary.discord.com','https://discord.com'),))
         resp = await conn.fetchone()
-        if resp != None:
+        if resp is not None:
             await db.execute("DELETE FROM message_load WHERE message_url = ?",(str(message.jump_url).replace('https://canary.discord.com','https://discord.com'),))
             await db.commit()
         else:
@@ -105,7 +103,7 @@ class message_load(Cog):
         db = await aiosqlite.connect("db/db.sqlite")
         conn = await db.execute("SELECT * FROM message_load WHERE message_url = ?", (str(after.jump_url).replace('https://canary.discord.com','https://discord.com'),))
         resp = await conn.fetchone()
-        if resp != None:
+        if resp is not None:
             await db.execute("UPDATE message_load SET message_content = ? WHERE message_url = ?", (str(after.content),str(after.jump_url)))
             await db.commit()
         else:

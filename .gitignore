@@ -130,6 +130,11 @@ dmypy.json
 
 # dccache
 .dccache
+
+# tools json
 tools/delivery_json
 tools/economy_json
 tools/temporary_json
+
+# sourcery
+sourcery.yml

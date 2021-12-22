@@ -57,7 +57,7 @@ class DashBoard:
     async def dashboard_setup(self):
         db = await aiosqlite.connect('db/db.sqlite')
         cur = await db.execute("SELECT * FROM dashboard WHERE guild = ?",(self.ctx.guild.id,))
-        if await cur.fetchone() != None:
+        if await cur.fetchone() is not None:
             return await self.ctx.reply('이미 설정되어있어요.')
         text_channel:discord.TextChannel = await self.ctx.guild.create_text_channel(name='하린-봇-대시보드')
         msg = await text_channel.send(embed=self.dashboard_embed(),components=[
@@ -147,16 +147,13 @@ class DashBoard:
 
     async def birth_setup(self):
         for channel in self.interaction.guild.text_channels:
-            if (
-                    channel.topic is not None
-                    and str(channel.topic).find("-HOnBtd") != -1
-            ):
+            if channel.topic is not None and "-HOnBtd" in str(channel.topic):
                 msg = await self.interaction.channel.send(f'이미 설정되어있어요. \n설정된 채널: {channel.mention}\n사용해제하시겠어요?',components=[
                     [Button(label='사용해제',style=ButtonStyle.red,custom_id='delete'),
                      Button(label='취소',custom_id='cancel')]
                 ])
                 try:
-                    inter: Interaction = await self.bot.wait_for('button_click',check=lambda i:i.user.id == self.interaction.user.id and i.message.id == msg.id,timeout=30)
+                    inter: Interaction = await self.bot.wait_for('button_click',check=lambda i, msg=msg:i.user.id == self.interaction.user.id and i.message.id == msg.id,timeout=30)
                     value = inter.custom_id
                     if value == 'delete':
                         await msg.delete()
@@ -193,23 +190,22 @@ class DashBoard:
                     await msg.delete()
             except asyncio.TimeoutError:
                 await msg.delete()
-        else:
-            if self.interaction.guild.system_channel == None:
-                msg = await self.interaction.channel.send('시스템 채널이 발견되지않았습니다.\n환영메세지를 보내기위해 채널ID만 30초내에 입력해주세요.')
-                try:
-                    message:discord.Message = await self.bot.wait_for('message',
-                                                                      check=lambda i:i.author.id == self.interaction.user.id and i.channel.id == self.interaction.channel_id,
-                                                                      timeout=30)
-                    await database.execute("INSERT INTO welcome(guild,channel) VALUES (?,?)",(self.interaction.guild_id,int(message.content)))
-                    await database.commit()
-                    await self.interaction.channel.send('✅ 성공적으로 설정하였습니다.', delete_after=5)
-                except asyncio.TimeoutError:
-                    await msg.delete()
-            else:
-                await database.execute("INSERT INTO welcome(guild,channel) VALUES (?,?)",
-                                       (self.interaction.guild_id, self.interaction.guild.system_channel.id))
+        elif self.interaction.guild.system_channel is None:
+            msg = await self.interaction.channel.send('시스템 채널이 발견되지않았습니다.\n환영메세지를 보내기위해 채널ID만 30초내에 입력해주세요.')
+            try:
+                message:discord.Message = await self.bot.wait_for('message',
+                                                                  check=lambda i:i.author.id == self.interaction.user.id and i.channel.id == self.interaction.channel_id,
+                                                                  timeout=30)
+                await database.execute("INSERT INTO welcome(guild,channel) VALUES (?,?)",(self.interaction.guild_id,int(message.content)))
                 await database.commit()
                 await self.interaction.channel.send('✅ 성공적으로 설정하였습니다.', delete_after=5)
+            except asyncio.TimeoutError:
+                await msg.delete()
+        else:
+            await database.execute("INSERT INTO welcome(guild,channel) VALUES (?,?)",
+                                   (self.interaction.guild_id, self.interaction.guild.system_channel.id))
+            await database.commit()
+            await self.interaction.channel.send('✅ 성공적으로 설정하였습니다.', delete_after=5)
 
     async def ivt_setup(self):
         database = await aiosqlite.connect("db/db.sqlite")
@@ -235,36 +231,32 @@ class DashBoard:
                     await msg.delete()
             except asyncio.TimeoutError:
                 await msg.delete()
-        else:
-            if self.interaction.guild.system_channel == None:
-                msg = await self.interaction.channel.send('시스템 채널이 발견되지않았습니다.\n환영메세지를 보내기위해 채널ID만 30초내에 입력해주세요.')
-                try:
-                    message:discord.Message = await self.bot.wait_for('message',
-                                                                      check=lambda i:i.author.id == self.interaction.user.id and i.channel.id == self.interaction.channel_id,
-                                                                      timeout=30)
-                    await database.execute("INSERT INTO invite_tracker(guild,channel) VALUES (?,?)",(self.interaction.guild_id,int(message.content)))
-                    await database.commit()
-                    await self.interaction.channel.send('✅ 성공적으로 설정하였습니다.', delete_after=5)
-                except asyncio.TimeoutError:
-                    await msg.delete()
-            else:
-                await database.execute("INSERT INTO invite_tracker(guild,channel) VALUES (?,?)",
-                                       (self.interaction.guild_id, self.interaction.guild.system_channel.id))
+        elif self.interaction.guild.system_channel is None:
+            msg = await self.interaction.channel.send('시스템 채널이 발견되지않았습니다.\n환영메세지를 보내기위해 채널ID만 30초내에 입력해주세요.')
+            try:
+                message:discord.Message = await self.bot.wait_for('message',
+                                                                  check=lambda i:i.author.id == self.interaction.user.id and i.channel.id == self.interaction.channel_id,
+                                                                  timeout=30)
+                await database.execute("INSERT INTO invite_tracker(guild,channel) VALUES (?,?)",(self.interaction.guild_id,int(message.content)))
                 await database.commit()
                 await self.interaction.channel.send('✅ 성공적으로 설정하였습니다.', delete_after=5)
+            except asyncio.TimeoutError:
+                await msg.delete()
+        else:
+            await database.execute("INSERT INTO invite_tracker(guild,channel) VALUES (?,?)",
+                                   (self.interaction.guild_id, self.interaction.guild.system_channel.id))
+            await database.commit()
+            await self.interaction.channel.send('✅ 성공적으로 설정하였습니다.', delete_after=5)
 
     async def bot_notify_setup(self):
         for channel in self.interaction.guild.text_channels:
-            if (
-                    channel.topic is not None
-                    and str(channel.topic).find("-HOnNt") != -1
-            ):
+            if channel.topic is not None and "-HOnNt" in str(channel.topic):
                 msg = await self.interaction.channel.send(f'이미 설정되어있어요. \n설정된 채널: {channel.mention}\n사용해제하시겠어요?',components=[
                     [Button(label='사용해제',style=ButtonStyle.red,custom_id='delete'),
                      Button(label='취소',custom_id='cancel')]
                 ])
                 try:
-                    inter: Interaction = await self.bot.wait_for('button_click',check=lambda i:i.user.id == self.interaction.user.id and i.message.id == msg.id,timeout=30)
+                    inter: Interaction = await self.bot.wait_for('button_click',check=lambda i, msg=msg:i.user.id == self.interaction.user.id and i.message.id == msg.id,timeout=30)
                     value = inter.custom_id
                     if value == 'delete':
                         await msg.delete()
