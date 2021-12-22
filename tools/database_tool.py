@@ -68,7 +68,7 @@ class DataBaseTool:
                               (guild.id, channel.id, message.id))
         await self.db.commit()
 
-    async def add_temporary_data(self, guild: discord.Guild, voice_channel: discord.TextChannel,
+    async def add_temporary_data(self, guild: discord.Guild, voice_channel: discord.VoiceChannel,
                                  category_channel: discord.CategoryChannel):
         ch_ = await self.check_db_temporary(guild)
         if not ch_:

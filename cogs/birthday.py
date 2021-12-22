@@ -84,22 +84,24 @@ class birthday(commands.Cog,discordSuperUtils.CogManager.Cog):
         # is located) other guilds wont have the same channel, meaning it wont send them birthday updates.
         # I advise of making a channel system, I do not recommend hard coding channel IDs at all unless you are SURE
         # the channel IDs wont be changed and the bot is not supposed to work on other guilds.
-        channels = birthday_member.member.guild.text_channels
-        for channel in channels:
-            if (
-                    channel.topic is not None
-                    and str(channel.topic).find("-HOnBtd") != -1
-            ):
-                channel = self.bot.get_channel(channel.id)
-                embed = discord.Embed(
-                    title="생일 축하합니다!! 🥳",
-                    description=f"{ordinal(await birthday_member.age())}번째 생일을 축하드립니다!🎉, {birthday_member.member.mention}!",
-                    color=0x00FF00,
-                )
+        birth_member = birthday_member.member
+        print(birth_member)
+        for guild in self.bot.guilds:
+            for member in guild.members:
+                if member.id == birth_member.id:
+                    for channel in guild.text_channels:
+                        if (
+                                channel.topic is not None
+                                and str(channel.topic).find("-HOnBtd") != -1
+                        ):
+                            embed = discord.Embed(
+                                title="생일 축하합니다!! 🥳",
+                                description=f"{ordinal(await birthday_member.age())}번째 생일을 축하드립니다!🎉, {birthday_member.member.mention}!",
+                                color=0x00FF00,
+                            )
+                            embed.set_thumbnail(url=birthday_member.member.avatar_url)
 
-                embed.set_thumbnail(url=birthday_member.member.avatar_url)
-
-                await channel.send(content=birthday_member.member.mention, embed=embed)
+                            await channel.send(content=birthday_member.member.mention, embed=embed)
 
     @commands.command(name="생일목록")
     async def upcoming(self, ctx):
@@ -109,7 +111,7 @@ class birthday(commands.Cog,discordSuperUtils.CogManager.Cog):
             for x in guild_upcoming
         ]
 
-        await discordSuperUtils.PageManager(
+        await discordSuperUtils.ButtonsPageManager(
             ctx,
             discordSuperUtils.generate_embeds(
                 formatted_upcoming,

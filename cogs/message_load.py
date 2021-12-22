@@ -2,6 +2,7 @@ import discord
 from discord.ext.commands import Cog
 import aiosqlite
 class message_load(Cog):
+    "메세지 로드"
     def __init__(self, bot):
         super().__init__()
         self.bot = bot
@@ -10,8 +11,8 @@ class message_load(Cog):
 
     @Cog.listener(name="on_message")
     async def message_load(self,message:discord.Message):
-        db = await aiosqlite.connect("db/db.db")
-        conn = await db.execute("SELECT * FROM message_load WHERE message_url = ?",(str(message.content),))
+        db = await aiosqlite.connect("db/db.sqlite")
+        conn = await db.execute("SELECT * FROM message_load WHERE message_url = ?",(str(message.jump_url).replace('https://canary.discord.com','https://discord.com'),))
         resp = await conn.fetchone()
         if resp is not None:
             if resp[3] == "none" and resp[5] == "none":
@@ -58,33 +59,39 @@ class message_load(Cog):
         else:
             if not bool(message.content) and not message.attachments:
                 return
-            msg_content = "none" if not bool(message.content) else message.content
-            if message.attachments:
-                await db.execute("INSERT INTO message_load(guild, message_url, user, message_content, channel, attachment_url) VALUES (?, ?, ?, ?, ?, ?)",
-                                 (message.guild.id, message.jump_url, message.author.id, msg_content, message.channel.id, message.attachments[0].url))
-                await db.commit()
-            if not message.attachments:
-                await db.execute(
-                    "INSERT INTO message_load(guild, message_url, user, message_content, channel, attachment_url) VALUES (?, ?, ?, ?, ?, ?)",
-                    (message.guild.id, message.jump_url, message.author.id, msg_content, message.channel.id,
-                     "none"))
-                await db.commit()
+            if not bool(message.content):
+                msg_content = "none"
+            else:
+                msg_content = message.content
+            try:
+                if message.attachments:
+                    await db.execute("INSERT INTO message_load(guild, message_url, user, message_content, channel, attachment_url) VALUES (?, ?, ?, ?, ?, ?)",
+                                     (message.guild.id, str(message.jump_url).replace('https://canary.discord.com','https://discord.com'), message.author.id, msg_content, message.channel.id, message.attachments[0].url))
+                    await db.commit()
+                if not message.attachments:
+                    await db.execute(
+                        "INSERT INTO message_load(guild, message_url, user, message_content, channel, attachment_url) VALUES (?, ?, ?, ?, ?, ?)",
+                        (message.guild.id, str(message.jump_url).replace('https://canary.discord.com','https://discord.com'), message.author.id, msg_content, message.channel.id,
+                         "none"))
+                    await db.commit()
+            except:
+                pass
     @Cog.listener(name="on_message_delete")
     async def detect_message_delete(self,message:discord.Message):
-        db = await aiosqlite.connect("db/db.db")
-        conn = await db.execute("SELECT * FROM message_load WHERE message_url = ?",(str(message.jump_url),))
+        db = await aiosqlite.connect("db/db.sqlite")
+        conn = await db.execute("SELECT * FROM message_load WHERE message_url = ?",(str(message.jump_url).replace('https://canary.discord.com','https://discord.com'),))
         resp = await conn.fetchone()
-        if resp is not None:
-            await db.execute("DELETE FROM message_load WHERE message_url = ?",(str(message.jump_url),))
+        if resp != None:
+            await db.execute("DELETE FROM message_load WHERE message_url = ?",(str(message.jump_url).replace('https://canary.discord.com','https://discord.com'),))
             await db.commit()
         else:
             return
 
     @Cog.listener(name="on_guild_channel_delete")
-    async def detect_message_delete(self, channel: discord.GroupChannel):
+    async def detect_channel_delete(self, channel: discord.GroupChannel):
         if type(channel) != discord.TextChannel:
             return
-        db = await aiosqlite.connect("db/db.db")
+        db = await aiosqlite.connect("db/db.sqlite")
         conn = await db.execute("SELECT * FROM message_load WHERE channel = ?", (channel.id,))
         resp = await conn.fetchone()
         if resp is not None:
@@ -92,5 +99,17 @@ class message_load(Cog):
             await db.commit()
         else:
             return
+
+    @Cog.listener(name='on_message_edit')
+    async def detect_message_edit(self,before:discord.Message, after:discord.Message):
+        db = await aiosqlite.connect("db/db.sqlite")
+        conn = await db.execute("SELECT * FROM message_load WHERE message_url = ?", (str(after.jump_url).replace('https://canary.discord.com','https://discord.com'),))
+        resp = await conn.fetchone()
+        if resp != None:
+            await db.execute("UPDATE message_load SET message_content = ? WHERE message_url = ?", (str(after.content),str(after.jump_url)))
+            await db.commit()
+        else:
+            return
+
 def setup(bot):
     bot.add_cog(message_load(bot))

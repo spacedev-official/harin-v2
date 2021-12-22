@@ -1,3 +1,5 @@
+import traceback
+
 import discord
 import aiohttp
 from discord.ext.commands import Cog,CommandNotFound,NotOwner,Context,CommandError,MissingPermissions,BotMissingPermissions
@@ -40,13 +42,13 @@ class core(Cog):
             return await ctx.reply(embed=em)
         else:
             async with aiohttp.ClientSession() as session:
-                async with session.post(url='https://www.toptal.com/developers/hastebin/documents',data=str(error.with_traceback())) as resp:
+                async with session.post(url='https://www.toptal.com/developers/hastebin/documents',data=str(traceback.format_exc()) + "\n" + error.__str__()) as resp:
                     if resp.status == 200:
                         resp_json = await resp.json()
                         code_key = resp_json['key']
                         em.description = "<a:cross:893675768880726017> 알수없는 에러가 발생했어요. 해당에러는 개발자에게 전송되어 수정될 예정이에요."
                         await ctx.reply(embed=em)
-                        em.description = f"```py\n{str(error.with_traceback())[:4096]}...\n```"
+                        em.description = f"```py\n{str(error.__str__())[:4000]}...\n```"
                         em.add_field(
                             name="전체 에러보기",
                             value=f"[링크](https://www.toptal.com/developers/hastebin/{code_key})"
@@ -54,7 +56,7 @@ class core(Cog):
                     else:
                         em.description = "<a:cross:893675768880726017> 알수없는 에러가 발생했어요. 해당에러는 개발자에게 전송되어 수정될 예정이에요."
                         await ctx.reply(embed=em)
-                        em.description = f"```py\n{str(error.with_traceback())[:4096]}...\n```"
+                        em.description = f"```py\n{str(error.__str__())[:4090]}...\n```"
                     await self.bot.get_user(281566165699002379).send(embed=em)
                     await session.close()
 

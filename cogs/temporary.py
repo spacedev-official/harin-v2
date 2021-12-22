@@ -90,7 +90,7 @@ class temporary(Cog):
 
     async def create_temporary_channel(self,member:discord.Member):
         #self.temp = temporary_caching()
-        db = await aiosqlite.connect("db/db.db")
+        db = await aiosqlite.connect("db/db.sqlite")
         conn = await db.execute("SELECT * FROM temporary WHERE guild = ?", (member.guild.id,))
         resp = await conn.fetchone()
         category: discord.CategoryChannel = self.bot.get_channel(resp[2])
@@ -265,9 +265,9 @@ class temporary(Cog):
         await msg.delete()
         await channel.send(content=f"✅ 성공적으로 `{limit}`으로 변경했어요.", delete_after=5)
 
-    @command(name="tsetup")
+    @command(name="tsetup",help="개인채널기능을 사용하기위한 설정입니다.")
     async def tsetup(self,ctx):
-        db = await aiosqlite.connect("db/db.db")
+        db = await aiosqlite.connect("db/db.sqlite")
         check_ = await DataBaseTool(db).check_db_temporary(guild=ctx.guild)
         if not check_:
             return await ctx.reply("❎ 이미 설정되어있는것같아요!")
@@ -319,11 +319,13 @@ class temporary(Cog):
     @Cog.listener('on_voice_state_update')
     async def temporary_event(self,member:discord.Member, before:discord.VoiceState, after:discord.VoiceState):
         if before.channel is None and after.channel is not None and not member.bot:
-            db = await aiosqlite.connect("db/db.db")
+            db = await aiosqlite.connect("db/db.sqlite")
             conn = await db.execute("SELECT * FROM temporary WHERE guild = ?",(member.guild.id,))
             resp = await conn.fetchone()
-            if resp is not None and after.channel.id == resp[1]:
-                await self.create_temporary_channel(member)
+
+            if resp != None:
+                if after.channel.id == resp[1]:
+                    await self.create_temporary_channel(member)
         elif not member.bot:
             #self.temp = temporary_caching()
             try:
@@ -352,7 +354,7 @@ class temporary(Cog):
     @Cog.listener(name="on_button_click")
     async def temporary_button_control(self,interaction:Interaction):
         if not interaction.user.voice or not interaction.user.voice.channel:
-            return await interaction.respond(content="음성채널에 접속하셔야만 조작이 가능해요.")
+            return
         guild = self.bot.get_guild(interaction.guild_id)
         try:
             voice_channel: discord.VoiceChannel = guild.get_member(interaction.user.id).voice.channel

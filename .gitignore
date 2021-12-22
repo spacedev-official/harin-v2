@@ -130,3 +130,6 @@ dmypy.json
 
 # dccache
 .dccache
+tools/delivery_json
+tools/economy_json
+tools/temporary_json
